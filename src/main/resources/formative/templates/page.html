@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html th:lang="${languageCode}">
+<div th:replace="fragments/head"></div>
+
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KV978ZL"
+                  height="0" width="0" title="Google Tag Manager" class="gtm-noscript"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<body th:classappend="${flags.auditMode} ? 'audit-mode'">
+<a class="usa-skipnav" href="#main-content" th:text="#{layout.skip-to-main}"></a>
+<div class="app-container">
+    <header>
+        <!--/* The Taxpert workspace is a developer surface: the nav, the panel and the tool dock are built only
+               into an --auditMode build, and are absent from a plain production build entirely.
+
+               The condition sits on a wrapping th:block, not on the replaced element: th:replace is
+               processed at a higher precedence than th:if, so an element carrying both is replaced
+               unconditionally and the condition is never read. */-->
+        <th:block th:if="${flags.auditMode}">
+            <div th:replace="fragments/taxpert-global-nav"></div>
+        </th:block>
+        <div th:replace="fragments/usa-banner"></div>
+        <div class="logo-banner">
+            <div class="grid-container">
+                <a href="https://www.irs.gov" th:aria-label="#{layout.irs.domain}">
+                    <img th:src="|${basePath}/resources/img/irs-logo.svg|" alt="" />
+                </a>
+                <div class="language-switcher">
+                    <label class="usa-sr-only" for="language-selector">Select Language</label>
+
+                    <select class="usa-select"
+                            id="language-selector"
+                            name="language-selector"
+                            onchange="if(this.value) window.location.href=this.value">
+
+                        <option value="" disabled selected>Select Language</option>
+
+                        <option th:each="lang : ${supportedLocales}"
+                                th:value="${lang.key == app.defaultLocale} ? |${basePath}${currentPageRoute}| : |${basePath}/${lang.key}${currentPageRoute}|"
+                                th:text="${lang.value}">
+                        </option>
+
+                    </select>
+                </div>
+            </div>
+    </header>
+
+    <main id="main-content">
+        <h1 th:text="#{layout.title}"></h1>
+
+        <div th:replace="fragments/usa-step-indicator"></div>
+
+        <div class="header-bottom-border" th:if="!${first}">
+            <a class="usa-link back-link" th:href="${lastPageHref}">
+                <svg aria-hidden="true" role="img" focusable="false" class="usa-icon">
+                    <use th:href="|${basePath}/resources/vendor/uswds-3.13.0/img/sprite.svg#navigate_before|"></use>
+                </svg>
+                <span th:text="#{buttons.back}" th:remove="tag"></span>
+            </a>
+        </div>
+
+        <noscript>
+            <!--/* Parameterized on the app's own title. This sentence used to name one product literally, which the
+                   other one then shipped verbatim on every page. */-->
+            <p class="alert--warning" th:text="#{layout.noscript(#{layout.title})}"></p>
+        </noscript>
+        <img
+                th:src="|${basePath}/resources/img/spinner.svg|"
+                id="loading-spinner"
+                alt="Loading spinner"
+        >
+        <div id="page-content-wrapper" class="hidden">
+            <div th:utext="${pageHtml}"></div>
+            <div class="form-actions" th:if="${nextPageHref}">
+            <!-- [html-validate-disable prefer-native-element -- Do not remove the .usa-button class - this class enables Space key functionality from USWDS needed for `role="button"`] -->
+            <a role="button" class="usa-button usa-button--outline back-btn--desktop" th:if="${lastPageHref}" th:href="${lastPageHref}">
+              <svg aria-hidden="true" role="img" focusable="false" class="usa-icon usa-icon--size-3 margin-left-neg-1 margin-y-neg-05">
+                <use th:href="|${basePath}/resources/vendor/uswds-3.13.0/img/sprite.svg#navigate_before|"></use>
+              </svg>
+              [[#{buttons.back}]]
+            </a>
+            <a role="button" class="usa-button" th:href="${nextPageHref}" onclick="return handleSectionContinue(event)">
+                [[#{buttons.next}]]
+                <svg aria-hidden="true" role="img" focusable="false" class="usa-icon usa-icon--size-3 margin-right-neg-1 margin-y-neg-05">
+                    <use th:href="|${basePath}/resources/vendor/uswds-3.13.0/img/sprite.svg#navigate_next|"></use>
+                </svg>
+            </a>
+            <a role="button" class="usa-button usa-button--outline back-btn--mobile" th:if="${lastPageHref}" th:href="${lastPageHref}">
+              <svg aria-hidden="true" role="img" focusable="false" class="usa-icon usa-icon--size-3 margin-left-neg-1 margin-y-neg-05">
+                <use th:href="|${basePath}/resources/vendor/uswds-3.13.0/img/sprite.svg#navigate_before|"></use>
+              </svg>
+              [[#{buttons.back}]]
+            </a>
+            <!-- [html-validate-enable prefer-native-element] -->
+            </div>
+        </div>
+
+    </main>
+
+    <footer th:aria-label="#{layout.title}" class="footer">
+        <div data-testid="identifier" class="usa-identifier">
+            <section data-testid="identifierMasthead" class="usa-identifier__section usa-identifier__section--masthead" th:aria-label="#{layout.identifier.agency-identifier}">
+                <div class="usa-identifier__container">
+                    <div data-testid="identifierLogos" class="usa-identifier__logos">
+                        <a class="usa-identifier__logo" href="https://irs.gov" th:aria-label="#{layout.irs.domain}">
+                            <img th:src="|${basePath}/resources/img/irs_logo_bk.svg|" class="usa-identifier__logo-img" alt="">
+                        </a>
+                    </div>
+                    <div data-testid="identifierIdentity" class="usa-identifier__identity">
+                        <p class="usa-identifier__identity-domain" th:text="#{layout.irs.domain}"></p>
+                        <p class="usa-identifier__identity-disclaimer" th:utext="#{layout.identifier.disclaimer}"></p>
+                    </div>
+                </div>
+            </section>
+            <nav class="usa-identifier__section usa-identifier__section--required-links" th:aria-label="#{layout.identifier.important-links}">
+                <div class="usa-identifier__container">
+                    <ul class="usa-identifier__required-links-list">
+                        <!--/* Both href and text come from the locale. A hardcoded href here was a route belonging to
+                               one application, which every other application would have inherited as a broken link;
+                               and a required link is exactly the kind of thing a translation may need to point
+                               somewhere else. */-->
+                        <li class="usa-identifier__required-links-item">
+                            <a target="_blank" class="usa-link usa-identifier__required-link" th:href="#{layout.identifier.about.link}" th:text="#{layout.identifier.about.text}"></a>
+                        </li>
+                        <li class="usa-identifier__required-links-item">
+                            <a target="_blank" class="usa-link usa-identifier__required-link" th:href="#{layout.identifier.accessibility.link}" th:text="#{layout.identifier.accessibility.text}"></a>
+                        </li>
+                        <li class="usa-identifier__required-links-item">
+                            <a target="_blank" class="usa-link usa-identifier__required-link" th:href="#{layout.identifier.privacy-policy.link}" th:text="#{layout.identifier.privacy-policy.text}"></a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+        </div>
+    </footer>
+
+    <template th:replace="fragments/js-templates"></template>
+    <div th:replace="~{errors}"></div>
+</div>
+
+<th:block th:if="${flags.auditMode}">
+    <div th:replace="fragments/audit-panel"></div>
+    <div th:replace="fragments/tool-dock"></div>
+</th:block>
+<!--/* Thymeleaf does not touch script bodies unless asked, so the module specifier is inlined
+       explicitly. An import specifier has to be a string literal syntactically, and JavaScript
+       inlining emits exactly that — a quoted, escaped string in place of the comment.
+
+       A parser-level comment, not an HTML one: the script below is gated on a flag, and an HTML
+       comment would outlive it into every page built with the flag off. */-->
+<script type="module" th:if="${flags.auditMode}" th:inline="javascript">
+    // If configured, automatically enable Audit Mode on startup
+    import { enable } from /*[[|${basePath}/resources/vendor/taxpert/audit-panel/js/taxpert-audit-panel.js|]]*/ ''
+    enable()
+</script>
+
+</body>
+</html>

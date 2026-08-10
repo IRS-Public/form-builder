@@ -1,0 +1,10 @@
+# The fixture application's own strings. Deliberately not a tax product: if a spec here can only be
+# made to pass by knowing about tax, the scaffold has stopped being a scaffold.
+title:
+  prefix: Pet Planner
+  suffix: A fictional host
+layout:
+  title: Pet Planner
+all-screens:
+  section:
+    other: Everything

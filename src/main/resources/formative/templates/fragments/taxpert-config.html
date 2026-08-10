@@ -1,0 +1,36 @@
+<!--
+  What the shared workspace knows about this application: its nav taxonomy, its endpoints, its
+  feature flags, the outcomes the tracker follows, the fact-graph adapter.
+
+  This file is the empty default. taxpert ships with none of an application's identity and is
+  explicit that an unconfigured host gets a working-but-contentless workspace — an empty Outcome
+  tracker is honest, another product's determinations are not. So the scaffold's default is to say
+  nothing rather than to guess.
+
+  An application replaces this by putting its own `templates/fragments/taxpert-config.html` in its
+  resources; app templates resolve ahead of the library's. Of everything in this fragment directory
+  it is the one that genuinely *is* per-application, which is why it is the one left blank.
+
+  See taxpert's `configure()` for the shape, and note it is read at render time — this may sit
+  before or after the element modules in <head>.
+-->
+<th:block th:fragment="taxpert-config">
+    <script type="module" th:inline="javascript">
+        import { configure } from /*[[|${basePath}/resources/vendor/taxpert/shared/js/config.js|]]*/ ''
+
+        configure({
+            app: {
+                id: /*[[${app.appId}]]*/ '',
+                brand: /*[[${app.brand}]]*/ '',
+                // Namespaces every storage key the workspace writes, so two Formative apps served
+                // from one origin do not share a watchlist, a layout or a fact graph.
+                storagePrefix: /*[[${app.appId}]]*/ '',
+            },
+            endpoints: {
+                basePath: /*[[${basePath}]]*/ '',
+                scenariosBase: /*[[|${basePath}/resources/scenarios|]]*/ '',
+                factDictionaryUrl: /*[[|${basePath}/resources/fact-dictionary.xml|]]*/ '',
+            },
+        })
+    </script>
+</th:block>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html th:lang="${languageCode}">
+<head>
+    <meta th:replace="fragments/head">
+    <link rel="stylesheet" th:href="|${basePath}/resources/styles/components/author-mode.css|">
+</head>
+
+<body class="author">
+<a class="usa-skipnav" href="#main-content">Skip to main content</a>
+<!-- Author Mode is a chrome-free editing shell: only the shared global nav wraps
+     the editor. No government banner, IRS logo, product-experience page layout, or
+     audit panel — this view is deliberately agnostic to how the flow itself is laid out.
+     The nav is rendered inline (not via fragments/taxpert-global-nav, which wires the
+     audit panel) with workspace-locked: Author Mode *is* a Taxpert Workspace
+     destination, so the workspace toggle stays pinned on and inert, and no audit
+     panel is ever shown. `active` (navActive="authoring-suite") marks the Authoring
+     Suite as the current destination. -->
+<div class="app-container">
+    <taxpert-global-nav
+        app="credit-assistant"
+        th:attr="active=${navActive}"
+        workspace-label="TAXPERT WORKSPACE"
+        workspace-locked="true"></taxpert-global-nav>
+
+    <main id="main-content" class="usa-prose author__main">
+        <div class="author__intro">
+            <h1>Author Mode</h1>
+            <p>
+                Edit constants, fact descriptions, and on-screen text through structured forms —
+                no XML required. Changes are validated live and saved to the source files; commit
+                them from the command line. After saving, refresh <strong>Product Experience</strong>
+                or <strong>Browse All</strong> to preview.
+            </p>
+        </div>
+
+        <!-- Live status / connection banner. Populated by author-mode.js. -->
+        <div id="author-status" class="author__status usa-alert usa-alert--info" role="status" hidden>
+            <div class="usa-alert__body">
+                <p class="usa-alert__text" id="author-status-text">Connecting to the authoring server…</p>
+            </div>
+        </div>
+
+        <!-- (1) Constant editor ─────────────────────────────────────────────── -->
+        <section class="author__section" aria-labelledby="author-constant-heading">
+            <h2 id="author-constant-heading" class="author__section-title">Edit a constant value</h2>
+            <p class="author__section-hint">
+                Update a tax-year threshold, rate, or limit. Values are validated against the
+                declared type (Dollar / Rational).
+            </p>
+            <div class="usa-form-group">
+                <label class="usa-label" for="author-constant-select">Constant</label>
+                <select class="usa-select" id="author-constant-select">
+                    <option value="" disabled selected>Select a constant…</option>
+                </select>
+            </div>
+            <div id="author-constant-fields" class="author__fields"></div>
+        </section>
+
+        <!-- (2) Fact description editor ──────────────────────────────────────── -->
+        <section class="author__section" aria-labelledby="author-description-heading">
+            <h2 id="author-description-heading" class="author__section-title">Edit a fact description</h2>
+            <p class="author__section-hint">
+                Reword the human-readable description of any fact. This does not change any
+                calculation.
+            </p>
+            <div class="usa-form-group">
+                <label class="usa-label" for="author-description-select">Fact</label>
+                <select class="usa-select" id="author-description-select">
+                    <option value="" disabled selected>Select a fact…</option>
+                </select>
+            </div>
+            <div id="author-description-fields" class="author__fields"></div>
+        </section>
+
+        <!-- (3) Fact configuration editor (Placeholder / Limit) ─────────────────── -->
+        <section class="author__section" aria-labelledby="author-factconfig-heading">
+            <h2 id="author-factconfig-heading" class="author__section-title">Edit a fact's default &amp; limits</h2>
+            <p class="author__section-hint">
+                Set a writable fact's default value (placeholder) and its minimum/maximum
+                allowed values. Only writable facts with a simple scalar type are listed.
+                Clearing a field removes it.
+            </p>
+            <div class="usa-form-group">
+                <label class="usa-label" for="author-factconfig-select">Fact</label>
+                <select class="usa-select" id="author-factconfig-select">
+                    <option value="" disabled selected>Select a writable fact…</option>
+                </select>
+            </div>
+            <div id="author-factconfig-fields" class="author__fields"></div>
+        </section>
+
+        <!-- (4) Screen-text + structure editor ───────────────────────────────── -->
+        <section class="author__section" aria-labelledby="author-screen-heading">
+            <h2 id="author-screen-heading" class="author__section-title">Edit on-screen text &amp; structure</h2>
+            <p class="author__section-hint">
+                Pick a screen, then a question or alert on it. For a question you can edit its
+                text, hint, input type, bound writable fact, and when it shows; for an alert its
+                heading, type, knockout, and condition. Each field is validated and saved
+                independently.
+            </p>
+            <div class="usa-form-group">
+                <label class="usa-label" for="author-screen-select">Screen</label>
+                <select class="usa-select" id="author-screen-select">
+                    <option value="" disabled selected>Select a screen…</option>
+                </select>
+            </div>
+            <div class="usa-form-group">
+                <label class="usa-label" for="author-block-select">Question or alert</label>
+                <select class="usa-select" id="author-block-select" disabled>
+                    <option value="" disabled selected>Select a screen first…</option>
+                </select>
+            </div>
+            <div id="author-screen-fields" class="author__fields"></div>
+        </section>
+
+        <!-- (5) Derived calculation editor (T18) ──────────────────────────────── -->
+        <section class="author__section" aria-labelledby="author-derived-heading">
+            <h2 id="author-derived-heading" class="author__section-title">Edit a calculation</h2>
+            <p class="author__section-hint">
+                Edit the computation behind a derived fact — the operators, conditions, and the
+                other facts it reads. Build the tree with the node picker; add or remove branches
+                and <code>Switch</code> cases. Every change is validated against the fact-graph
+                before it can be saved.
+            </p>
+            <div class="usa-form-group">
+                <label class="usa-label" for="author-derived-select">Derived fact</label>
+                <select class="usa-select" id="author-derived-select">
+                    <option value="" disabled selected>Select a derived fact…</option>
+                </select>
+            </div>
+            <div id="author-derived-fields" class="author__fields"></div>
+        </section>
+
+        <!-- (6) Create a new fact (T17) ───────────────────────────────────────── -->
+        <section class="author__section" aria-labelledby="author-create-fact-heading">
+            <h2 id="author-create-fact-heading" class="author__section-title">Create a new fact</h2>
+            <p class="author__section-hint">
+                Add a brand-new fact: a writable answer, a fixed constant, or a derived
+                calculation. It's validated against the schema and the fact-graph (duplicate
+                paths and bad dependencies are rejected) before it's written.
+            </p>
+            <div id="author-create-fact-fields" class="author__fields"></div>
+        </section>
+
+        <!-- (7) Create a new screen (T17) ─────────────────────────────────────── -->
+        <section class="author__section" aria-labelledby="author-create-screen-heading">
+            <h2 id="author-create-screen-heading" class="author__section-title">Create a new screen</h2>
+            <p class="author__section-hint">
+                Add a new page to a flow module, optionally with a first question. Add more
+                questions and alerts afterward with the on-screen text &amp; structure editor above.
+            </p>
+            <div id="author-create-screen-fields" class="author__fields"></div>
+        </section>
+
+        <!-- (8) Delete a fact (T19) ───────────────────────────────────────────── -->
+        <section class="author__section" aria-labelledby="author-delete-heading">
+            <h2 id="author-delete-heading" class="author__section-title">Delete a fact</h2>
+            <p class="author__section-hint">
+                Remove a fact. First we show everything that references it — other facts and
+                on-screen questions/alerts. Deletion is blocked while anything still depends on it;
+                remove those references first.
+            </p>
+            <div class="usa-form-group">
+                <label class="usa-label" for="author-delete-select">Fact</label>
+                <select class="usa-select" id="author-delete-select">
+                    <option value="" disabled selected>Select a fact…</option>
+                </select>
+            </div>
+            <div id="author-delete-fields" class="author__fields"></div>
+        </section>
+
+        <!-- Lint panel ───────────────────────────────────────────────────────── -->
+        <section class="author__section" aria-labelledby="author-lint-heading">
+            <h2 id="author-lint-heading" class="author__section-title">Check for authoring issues</h2>
+            <p class="author__section-hint">
+                Run a soft lint over the current flow and facts — questions bound to computed
+                facts, gates or knockouts no question can ever satisfy. These are warnings, not
+                errors; they never block a save.
+            </p>
+            <button class="usa-button usa-button--outline" id="author-lint-btn" type="button">Run lint check</button>
+            <div id="author-lint-results" class="author__lint-results" role="status" aria-live="polite"></div>
+        </section>
+    </main>
+</div>
+
+<script type="module" th:src="|${basePath}/resources/js/author-mode.js|"></script>
+</body>
+</html>

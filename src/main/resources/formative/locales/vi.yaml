@@ -1,0 +1,128 @@
+# Chrome for the templates gov.irs::formative ships — the wording on a
+# collection's add/remove buttons, a date field's months, the validation messages, the
+# USWDS banner and identifier. Identical in every Formative app, so it lives with the
+# templates that ask for it rather than being copied into each app's locales.
+#
+# An app overrides any key here just by declaring it: lookup is app first, then this
+# file, then the generated flow locale.
+components:
+  fg-set:
+    required: (Bắt buộc)
+  fg-collection:
+    buttons:
+      remove: Xóa {0}
+      add: Thêm {0}
+      add-with-determiner: Thêm {1} {0}
+    remove-item-modal:
+      heading:
+        remove: Xóa {0}?
+      body: Bạn có chắc chắn muốn xóa {0} này khỏi tính toán EITC không?
+      footer:
+        confirm: Xác nhận {0}
+        cancel: Hủy {0}
+    determiners:
+      another: khác
+      more: nữa
+  modal:
+    close: Đóng cửa sổ này
+    ok: Đồng ý
+  boolean:
+    'yes': Có
+    'no': Không
+  date:
+    month: Tháng
+    day: Ngày
+    year: Năm
+    select: '- Chọn -'
+    january: Tháng 1
+    february: Tháng 2
+    march: Tháng 3
+    april: Tháng 4
+    may: Tháng 5
+    june: Tháng 6
+    july: Tháng 7
+    august: Tháng 8
+    september: Tháng 9
+    october: Tháng 10
+    november: Tháng 11
+    december: Tháng 12
+  select:
+    select: -- Chọn một --
+layout:
+  skip-to-main: Chuyển đến nội dung chính
+  identifier:
+    agency-identifier: Mã định danh cơ quan
+    disclaimer: Một trang web chính thức của <a class="usa-link" target="_blank" href="https://irs.gov">IRS<span class="usa-sr-only"> (mở trong tab mới)</span></a>
+    about:
+      text: Giới thiệu
+      link: https://www.irs.gov/about-irs
+    accessibility:
+      text: Trợ năng
+      link: https://www.irs.gov/accessibility
+    privacy-policy:
+      text: Chính sách bảo mật
+      link: https://www.irs.gov/privacy-disclosure/irs-privacy-policy
+    important-links: Các liên kết quan trọng
+  irs:
+    name: IRS
+    domain: IRS.gov
+  banner:
+    how-you-know: Làm thế nào để bạn biết
+    official-domain: Các trang web chính thức sử dụng .gov
+    official-organization: Trang web <strong>.gov</strong> thuộc về một tổ chức chính thức của chính phủ Hoa Kỳ.
+    secure-https: Các trang web .gov an toàn sử dụng HTTPS
+    disclaimer: Một trang web chính thức của chính phủ Hoa Kỳ
+    lock-1: <strong>Ổ khóa</strong>
+    lock-2: hoặc <strong>https://</strong> có nghĩa là bạn đã kết nối an toàn với trang web .gov. Chỉ chia sẻ thông tin nhạy cảm trên các trang web chính thức, an toàn.
+  noscript: JavaScript is required to use the {0}. Please enable JavaScript or switch to a browser that is JavaScript-capable.
+buttons:
+  next: Tiếp theo
+  continue: Tiếp tục
+  back: Quay lại
+  submit: Gửi
+alerts:
+  warning:
+    complete-required: Vui lòng trả lời các câu hỏi bắt buộc.
+step-indicator:
+  completed: đã hoàn thành
+  not-completed: chưa hoàn thành
+  step: Bước
+  of: của
+errors:
+  CombinedHyphensAndParentheses: Chỉ nhập số và dấu thập phân.
+  InvalidCharacters: Chỉ nhập số và dấu thập phân.
+  InvalidDollar: Chỉ nhập số và dấu thập phân.
+  InvalidHyphens: Chỉ nhập số và dấu thập phân.
+  InvalidParentheses: Chỉ nhập số và dấu thập phân.
+  TooManyDecimals: Chỉ nhập số có một dấu thập phân.
+  TooManyFractionalDigits: Chỉ nhập hai chữ số sau dấu thập phân.
+  InvalidDay: Nhập một ngày hợp lệ.
+  InvalidDayDueToLeapYear: Ngày không hợp lệ do năm nhuận.
+  InvalidMonth: Nhập một tháng hợp lệ.
+  InvalidDate: Nhập một ngày hợp lệ.
+  InvalidLimit: Giới hạn được thiết lập không hợp lệ.
+  IncompleteWritableDate: Nhập ngày đầy đủ hoặc để trống.
+  BlankEnum: Giá trị bị trống.
+  InvalidEnum: Không tìm thấy giá trị.
+  Required: Bắt buộc phải trả lời câu hỏi này để tiếp tục.
+  Default: Rất tiếc, đã xảy ra lỗi.
+  Max: Nhập số tiền nhỏ hơn
+  Min: Nhập số tiền lớn hơn
+audit:
+  fact-select:
+    question: Đường dẫn dữ kiện
+    blank: -- Chọn một đường dẫn --
+  collection-id-label: ID Bộ sưu tập
+  fact:
+    type: 'Loại dữ kiện:'
+    value: 'Giá trị:'
+    remove: Xóa dữ kiện
+    definition: Định nghĩa XML
+all-screens:
+  section:
+    page-count: '{0} trang'
+    condition-count: '{0} điều kiện'
+  screen:
+    condition-count: '{0} điều kiện'
+title:
+  format: '{0} - {1} | {2}'

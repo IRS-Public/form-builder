@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html th:lang="${languageCode}">
+<head>
+    <meta th:replace="fragments/head">
+    <link rel="stylesheet" th:href="|${basePath}/resources/styles/all-screens.css|">
+    <link rel="stylesheet" th:href="|${basePath}/resources/vendor/taxpert/audit-panel/styles/all-screens-toolbar.css|">
+</head>
+
+<body class="view--column all-screens" th:classappend="${flags.auditMode} ? 'audit-mode'">
+<a class="usa-skipnav" href="#main-content">Skip to main content</a>
+<div class="app-container">
+    <header>
+        <div th:replace="fragments/taxpert-global-nav"></div>
+        <div th:replace="fragments/usa-banner"></div>
+        <div class="logo-banner">
+            <div class="grid-container">
+                <a href="https://www.irs.gov" th:aria-label="#{layout.irs.domain}">
+                    <img th:src="|${basePath}/resources/img/irs-logo.svg|" alt="" />
+                </a>
+
+                <div class="language-switcher">
+                    <label class="usa-sr-only" for="language-selector">Select Language</label>
+
+                    <select class="usa-select"
+                            id="language-selector"
+                            name="language-selector"
+                            onchange="if(this.value) window.location.href=this.value">
+
+                        <option value="" disabled selected>Select Language</option>
+
+                        <option th:each="lang : ${supportedLocales}"
+                                th:value="${lang.key == app.defaultLocale} ? |${basePath}${currentPageRoute}| : |${basePath}/${lang.key}${currentPageRoute}|"
+                                th:text="${lang.value}">
+                        </option>
+
+                    </select>
+                </div>
+            </div>
+        </div>
+    </header>
+    <taxpert-screens-toolbar id="screens-toolbar"></taxpert-screens-toolbar>
+
+    <div class="usa-in-page-nav-container">
+        <main id="main-content" class="main-content usa-prose">
+            <section th:each="section : ${sections}"
+                     class="all-screens__section"
+                     th:data-section="${section.slug}">
+                <header class="all-screens__section-header">
+                    <h2 th:id="${section.slug}" th:text="${section.title}">Section</h2>
+                    <span class="all-screens__section-meta">
+                        <span th:text="#{all-screens.section.page-count(${section.pageCount})}">N pages</span>
+                        <span class="all-screens__section-meta-sep" aria-hidden="true">·</span>
+                        <span th:text="#{all-screens.section.condition-count(${section.conditionCount})}">N conditions</span>
+                    </span>
+                </header>
+
+                <article th:each="page : ${section.pages}"
+                         class="screen"
+                         th:data-route="${page.route}"
+                         th:data-condition-count="${page.conditionCount}"
+                         th:attr="data-gate-condition=${page.gateConditionPath}, data-gate-operator=${page.gateConditionOperator}">
+                    <header class="screen__header">
+                        <h3 class="screen__title" th:text="${page.title}">Page Title</h3>
+                        <span class="screen__meta">
+                            <code class="screen__route" th:text="${page.route}">/route</code>
+                            <span class="screen__meta-sep" aria-hidden="true">·</span>
+                            <span class="screen__condition-count"
+                                  th:text="#{all-screens.screen.condition-count(${page.conditionCount})}">N conditions</span>
+                        </span>
+                    </header>
+                    <div class="screen__content" th:utext="${page.content}">Lorem Ipsum</div>
+                </article>
+            </section>
+        </main>
+    </div>
+
+    <template th:replace="fragments/js-templates"></template>
+</div>
+
+<div th:replace="fragments/audit-panel"></div>
+<div th:replace="fragments/tool-dock"></div>
+<script type="module" th:if="${flags.auditMode}">
+    // If configured, automatically enable Audit Mode on startup
+    import { enable } from '${basePath}/resources/vendor/taxpert/audit-panel/js/taxpert-audit-panel.js'
+    enable()
+</script>
+<script type="module" th:src="|${basePath}/resources/vendor/taxpert/audit-panel/js/all-screens-toolbar.js|"></script>
+<script type="module" th:src="|${basePath}/resources/js/all-screens-bootstrap.js|"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<div th:fragment="taxpert-global-nav" th:remove="tag">
+    <taxpert-global-nav
+        th:attr="app=${app.appId}, active=${navActive}"
+        workspace-label="TAXPERT WORKSPACE"
+        th:attrappend="workspace-on=${flags.auditMode} ? 'true' : 'false'"></taxpert-global-nav>
+
+    <script type="module" th:inline="javascript">
+        import { enable, disable } from /*[[|${basePath}/resources/vendor/taxpert/audit-panel/js/taxpert-audit-panel.js|]]*/ ''
+        document.querySelector('taxpert-global-nav')?.addEventListener('workspace-toggle', (event) => {
+            if (event.detail.on) enable()
+            else disable()
+        })
+    </script>
+</div>

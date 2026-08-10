@@ -1,0 +1,28 @@
+<!--
+  The Taxpert Workspace panel. It owns the Scenario, Display and Workspace-settings modals; the
+  Inspect / Outcome tracker / Watchlist tools mount separately from fragments/tool-dock.html.
+
+  Every URL here is derived from ${basePath}, so this works unchanged in any application. An app
+  that needs to register panel extensions of its own — an extra dashboard, a scenario vocabulary —
+  copies this file into its own templates/fragments/ and adds them; app templates resolve first, so
+  its copy wins. That is deliberately a copy of twenty lines rather than a hook: the alternative is
+  every application having to supply an extensions fragment whether it has extensions or not.
+-->
+<taxpert-audit-panel id="audit-panel"
+   aria-label="Audit Panel"
+   api-base="http://localhost:8000"
+   th:attr="scenarios-base=|${basePath}/resources/scenarios|,
+            fact-dictionary-url=|${basePath}/resources/fact-dictionary.xml|,
+            ai-scenario-generation-default=${flags.aiScenarioGeneration != null and flags.aiScenarioGeneration ? 'true' : 'false'},
+            ai-fact-explanation-default=${flags.aiFactExplanation != null and flags.aiFactExplanation ? 'true' : 'false'}">
+   <!-- Host-supplied scenario options (light-DOM children, read on connect). Wrapped in a
+        <template> so the page HTML stays valid; only emitted in scenario mode. -->
+   <template th:if="${flags.scenarioMode and scenarios != null and !scenarios.isEmpty()}">
+      <option th:each="scenario : ${scenarios}"
+              th:value="${scenario.filename}"
+              th:text="${scenario.label}"></option>
+   </template>
+</taxpert-audit-panel>
+<script type="module" th:inline="javascript">
+   import /*[[|${basePath}/resources/vendor/taxpert/audit-panel/js/taxpert-audit-panel.js|]]*/ ''
+</script>

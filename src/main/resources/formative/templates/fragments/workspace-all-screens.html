@@ -1,0 +1,18 @@
+<!--/*
+  What an application adds to the Browse All / Path Mode page. The empty default.
+
+  Two fragments, because the page needs a stylesheet in <head> and a module at the end of <body>:
+
+    workspace-all-screens-head   the screens toolbar's stylesheet
+    workspace-all-screens-body   the screens toolbar's module
+
+  Unlike the other workspace seams these are *not* gated on `--auditMode`, matching what
+  `all-screens.html` did before this became an application's file: the toolbar is the page's own
+  chrome — its section tabs and layout switch — rather than part of the audit panel, and the page
+  only exists under `--allScreens` in the first place.
+
+  Empty here for the reason `fragments/workspace-head.html` explains at length: the toolbar lives in
+  taxpert, and the scaffold names no path inside taxpert.
+*/-->
+<th:block th:fragment="workspace-all-screens-head"></th:block>
+<th:block th:fragment="workspace-all-screens-body"></th:block>

@@ -3,6 +3,7 @@ package gov.irs.formative.generators
 import gov.irs.formative.parser.Flow
 import gov.irs.formative.parser.Page
 import gov.irs.formative.FormativeApp
+import gov.irs.formative.FormativeAssets
 import gov.irs.formative.FormativeTemplateEngine
 import org.thymeleaf.context.Context
 import os.Path
@@ -21,6 +22,9 @@ case class AllScreens(pages: List[WebsitePage], factDictionary: xml.Elem) {
     val resourcesSource = app.websiteStaticDir
     val resourcesTarget = directoryPath / "resources"
     os.copy(resourcesSource, resourcesTarget)
+
+    // As in Website.save — this page links main.css and the flow runtime too. See FormativeAssets.
+    FormativeAssets.extractInto(resourcesTarget)
   }
 }
 

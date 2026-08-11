@@ -1,0 +1,28 @@
+.alert--warning {
+  box-sizing: border-box;
+  background-color: var(--error-lighter);
+  padding: var(--units-2);
+  margin-bottom: var(--units-2);
+  width: 100%;
+}
+
+.fg-alert {
+  margin-top: 1em
+}
+
+/*
+ * USWDS sets .usa-alert .usa-alert__text { margin-top: 0 }, which wins over utility classes
+ * like .margin-top-2 (higher specificity). Space stacked body paragraphs when we use two <p>.
+ */
+.flow .usa-alert__body > p.usa-alert__text + p.usa-alert__text {
+  margin-top: var(--units-2);
+}
+
+/*
+ * USWDS positions the alert icon with ::before { top: ~0.67rem }, so it stays near the first line when
+ * body text wraps. Vertically center the icon in the body for a balanced look on multi-line info banners.
+ */
+/* .flow .usa-alert .usa-alert__body::before {
+  top: 50%;
+  transform: translateY(-50%);
+} */

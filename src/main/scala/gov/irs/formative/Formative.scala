@@ -116,7 +116,17 @@ object Formative {
     */
   def parseFlow(app: FormativeApp, dictionary: LoadedFactDictionary): Flow = {
     given FormativeApp = app
+    Flow.fromXmlConfig(resolvedFlowConfig(app), dictionary.factDictionary, app)
+  }
 
+  /** `flow/index.xml` with every `<module src="…"/>` spliced in — the XML the flow is parsed from.
+    *
+    * Lifted out of [[parseFlow]] because a second reader wants it: [[generators.FormativeGraph]] emits a node per flow
+    * element carrying that element's own source XML, and the parsed `FlowNode` case classes have thrown their `Elem`
+    * away by then. Re-reading here is additive — it cannot regress site generation the way threading a `sourceXml`
+    * field through every node type and every app-registered `FlowNodeParser` could.
+    */
+  def resolvedFlowConfig(app: FormativeApp): xml.Elem = {
     // Get flow root
     val flowFile = os.read(app.flowDir / "index.xml")
     val flowConfig = xml.XML.loadString(flowFile)
@@ -131,9 +141,7 @@ object Formative {
       },
     )
 
-    val resolvedConfig = <FlowConfig>{resolvedChildren}</FlowConfig>
-
-    Flow.fromXmlConfig(resolvedConfig, dictionary.factDictionary, app)
+    <FlowConfig>{resolvedChildren}</FlowConfig>
   }
 
   def regenerate(app: FormativeApp, flags: Map[String, Boolean]): os.Path = {
@@ -146,7 +154,22 @@ object Formative {
         Flow(PageSplitter.split(parsedFlow.pages), parsedFlow.translationContext)
       else parsedFlow
     generateFlowLocaleFile(flow.translationContext.translationMap, app)
-    val site = Website.generate(flow, loadedDictionary.xml, flags)
+
+    // The Formative Graph Model describes the *authored* flow, so it is built from `parsedFlow` and
+    // not from `flow` — the latter has already been exploded into one question per page under
+    // --singleQuestionPerScreen, and the graph should not change shape with an unrelated flag.
+    val formativeGraphJson = Option.when(flags.contains(Flags.formativeGraph)) {
+      io.circe.Printer.spaces2.print(
+        generators.FormativeGraph.buildJson(
+          resolvedFlowConfig(app),
+          loadedDictionary.xml,
+          parsedFlow,
+          app,
+        ),
+      )
+    }
+
+    val site = Website.generate(flow, loadedDictionary.xml, flags, formativeGraphJson)
 
     // Delete out/ directory and add files to it
     val outDir = os.pwd / "out"

@@ -1,14 +1,16 @@
+<!--/*
+  The global nav's element. Just the tag: an unknown element name is inert markup, so the scaffold can
+  place the nav without depending on the package that defines it.
+
+  The module that upgrades this into a working nav, and the wiring that turns its `workspace-toggle`
+  event into enable()/disable(), are in the application's own fragments/workspace-head.html — the
+  scaffold names no path inside `vendor/taxpert/`. That listener is registered on `document` rather
+  than on this element, because it runs from <head> before this exists; the event is dispatched with
+  bubbles+composed for exactly that reason.
+*/-->
 <div th:fragment="taxpert-global-nav" th:remove="tag">
     <taxpert-global-nav
         th:attr="app=${app.appId}, active=${navActive}"
         workspace-label="TAXPERT WORKSPACE"
         th:attrappend="workspace-on=${flags.auditMode} ? 'true' : 'false'"></taxpert-global-nav>
-
-    <script type="module" th:inline="javascript">
-        import { enable, disable } from /*[[|${basePath}/resources/vendor/taxpert/audit-panel/js/taxpert-audit-panel.js|]]*/ ''
-        document.querySelector('taxpert-global-nav')?.addEventListener('workspace-toggle', (event) => {
-            if (event.detail.on) enable()
-            else disable()
-        })
-    </script>
 </div>

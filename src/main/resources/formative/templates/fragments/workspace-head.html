@@ -1,0 +1,23 @@
+<!--/*
+  Whatever an application needs in <head> to mount a workspace over its flow. The empty default.
+
+  ── Why this is the application's file and not the library's ──────────────────────────────────
+
+  The scaffold decides *that* there is a workspace slot and when it is filled — `fragments/head.html`
+  replaces this only under `--auditMode`. It deliberately does not decide *what* fills it, because
+  the workspace is `taxpert`, and taxpert is optional: an app can ship without the nav and the
+  inspector, and cannot ship without the scaffold. A library that spelled out
+  `resources/vendor/taxpert/audit-panel/styles/audit-panel.css` would be hardcoding the internal file
+  layout of a package it neither depends on nor versions — and would make
+  `include_taxpert_workspace: no` in the cookiecutter a conditional inside a library template rather
+  than a file that simply is not emitted.
+
+  An application fills the slot by putting its own `templates/fragments/workspace-head.html` in its
+  resources; app templates resolve ahead of the library's. See either real app's copy for the shape:
+  the audit panel's stylesheet, a preload for the nav's markup, the three element modules, and the
+  wiring that turns the nav's `workspace-toggle` event into enable()/disable().
+
+  The cost of this seam is that the mount markup lives once per app rather than once here. That is
+  accepted: it is the only arrangement in which the scaffold names no `vendor/taxpert/` path at all.
+*/-->
+<th:block th:fragment="workspace-head"></th:block>

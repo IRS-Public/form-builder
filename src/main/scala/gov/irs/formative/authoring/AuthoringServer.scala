@@ -139,17 +139,36 @@ object AuthoringServer {
       }
     }
 
-  // The editor is loaded both directly from credit-assistant (:3003) and, via formative-studio's
-  // Vite dev proxy for the scenario overlay (see formative-studio/vite.config.js), from :5180 — the
-  // browser's location.origin is :5180 in that case even though the HTML came from CA, so a single
-  // hardcoded Allow-Origin can't cover both. Reflect the request's Origin if it's one of these known
-  // local dev origins; otherwise fall back to :3003 (still a same-origin no-op for direct CA usage).
-  private val AllowedOrigins = Set("http://localhost:3003", "http://localhost:5180")
+  // Fact Explorer's dev server. The one origin here that is not derived: it is Fact Explorer's own
+  // port, a property of that tool rather than of any application, and Fact Explorer holds every app
+  // at once.
+  private val FactExplorerOrigin = "http://localhost:5180"
+
+  /** The app's own dev origin, from the port it is actually being served on.
+    *
+    * Derived rather than written down. This used to be the literal `http://localhost:3003` — one application's port,
+    * hardcoded in the library, which meant the second app's Author Mode had no working CORS at all. The port is
+    * resolved the same way [[Formative.run]] resolves it: `-Dsmol.port` if set, else the app's `defaultPort`.
+    */
+  private def appOrigin: String = {
+    val port = sys.props
+      .get("smol.port")
+      .flatMap(s => scala.util.Try(s.toInt).toOption)
+      .getOrElse(app.defaultPort)
+    s"http://localhost:$port"
+  }
+
+  // The editor is loaded both directly from the app's own dev server and, via fact-explorer's Vite
+  // dev proxy for the scenario overlay (see fact-explorer/vite.config.js), from :5180 — the
+  // browser's location.origin is :5180 in that case even though the HTML came from the app, so a
+  // single hardcoded Allow-Origin can't cover both. Reflect the request's Origin if it is one of
+  // these known local dev origins; otherwise fall back to the app's own (a same-origin no-op).
+  private def allowedOrigins: Set[String] = Set(appOrigin, FactExplorerOrigin)
 
   private def addCors(ex: HttpExchange): Unit = {
     val h = ex.getResponseHeaders
     val requestOrigin = Option(ex.getRequestHeaders.getFirst("Origin"))
-    val allowOrigin = requestOrigin.filter(AllowedOrigins.contains).getOrElse("http://localhost:3003")
+    val allowOrigin = requestOrigin.filter(allowedOrigins.contains).getOrElse(appOrigin)
     h.set("Access-Control-Allow-Origin", allowOrigin)
     h.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     h.set("Access-Control-Allow-Headers", "Content-Type")

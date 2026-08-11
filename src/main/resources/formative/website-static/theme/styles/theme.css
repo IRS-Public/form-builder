@@ -1,0 +1,53 @@
+/*
+ * The Formative theme — the USWDS token layer and the component styling every generated flow shares.
+ *
+ * This is the half of a Formative app's stylesheet that has nothing to do with which app it is: the
+ * design-token variables, the page header and main-content layout, and the styling for the elements
+ * the scaffold generates (questions, alerts, collections, details, the step indicator, buttons,
+ * tables, modals). All of it was duplicated byte-for-byte across applications before it moved here.
+ *
+ * It ships inside the `gov.irs::formative` jar and is extracted into a generated site by the
+ * generators — see FormativeAssets.scala — so it arrives with the templates that reference it rather
+ * than out of a separate npm package. It spent a while in `taxpert` instead, which made the
+ * *workspace* a build dependency of every app: an app can ship without the nav and the inspector,
+ * but not without a stylesheet.
+ *
+ * An application imports this first and then its own overrides, so ordinary cascade order does the
+ * work — no `!important`, no layer juggling:
+ *
+ *     @import "../vendor/formative/theme/styles/theme.css";
+ *     @import "components/whatever-is-mine.css";
+ *
+ * The icon URLs inside are stylesheet-relative (`../../../../uswds-3.13.0/…`), which resolves
+ * correctly from the vendored location without any app knowing its own route prefix — the same
+ * property runtime-paths.js buys for the JS. Four levels up from
+ * `vendor/formative/theme/styles/<dir>/` is `vendor/`, so do not flatten this tree.
+ *
+ * Deliberately NOT here: `main.css` (an app's import root, per-app by definition), `all-screens.css`,
+ * and anything belonging to one app's own components. An app's `utilities/display-conditions.css`
+ * also stays with the app, but only the one rule in it that names that app's flow vocabulary.
+ *
+ * Also deliberately not here: the "show conditions" chips and the human-readable fact view. Those
+ * style markup the *workspace* writes, so they are tooling rather than theme and live in taxpert's
+ * `tool-panels/styles/condition-detail.css`.
+ */
+
+@import "variables.css";
+
+@import "layout/header.css";
+@import "layout/main-content.css";
+
+/* Order within this file reproduces the order the app stylesheets imported these in before they
+   moved, so nothing shifts in the cascade: variables, layout, components, then utilities. */
+@import "components/buttons.css";
+@import "components/alerts.css";
+@import "components/details.css";
+@import "components/fg-collections.css";
+@import "components/forms.css";
+@import "components/modals.css";
+@import "components/step-indicator.css";
+@import "components/stacked-button-group.css";
+@import "components/tables.css";
+@import "components/estimate.css";
+
+@import "utilities/utilities.css";

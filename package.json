@@ -1,0 +1,19 @@
+{
+  "name": "formative-assets",
+  "version": "0.1.0",
+  "description": "Lint and test tooling for the browser assets shipped inside the gov.irs::formative jar (the theme and the flow runtime). Not a published package — formative is consumed as a Scala artifact; this exists only so the JS under src/main/resources/formative/website-static/ is held to the same standard as the rest of the repo's client code.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "lint": "eslint",
+    "format": "eslint --fix"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.1",
+    "eslint-plugin-security": "^3.0.1",
+    "globals": "^15.9.0",
+    "neostandard": "^0.12.2"
+  }
+}

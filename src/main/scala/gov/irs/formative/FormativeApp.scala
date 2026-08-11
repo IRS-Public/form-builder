@@ -29,6 +29,14 @@ import scala.collection.immutable.ListMap
   *   the dev server's port when `-Dsmol.port` says nothing.
   * @param brand
   *   the product name, used in the dev server's startup banner.
+  * @param storagePrefix
+  *   namespaces every browser storage key the generated site writes, so two Formative apps served from one origin —
+  *   each under its own route prefix, sharing one `sessionStorage` — do not rehydrate each other's fact graph. Defaults
+  *   to [[appId]], which is already unique per app; override it only to keep an existing app's keys stable.
+  *
+  * It reaches the browser from `fragments/head.html`, ungated, which is the point: it used to arrive only through the
+  * workspace's own configuration fragment, so a site built without `--auditMode` silently fell back to a shared
+  * default. The workspace namespaces its own keys separately — see `runtime-config.js`.
   * @param nodeTypes
   *   flow XML element name -> parser, for elements this library does not know. Merged over the built-ins, so an app can
   *   also *replace* one. Anything still unmatched is treated as ordinary HTML, exactly as before.
@@ -46,10 +54,14 @@ case class FormativeApp(
     locales: ListMap[String, String],
     defaultPort: Int,
     brand: String,
+    storagePrefix: Option[String] = None,
     nodeTypes: Map[String, FlowNodeParser] = Map.empty,
     inputTypes: Map[String, InputParser] = Map.empty,
     resourceRoot: os.Path = os.pwd / "src" / "main" / "resources",
 ) {
+
+  /** The prefix every browser storage key this site writes is namespaced with. Defaults to [[appId]]. */
+  def storageKeyPrefix: String = storagePrefix.getOrElse(appId)
 
   /** This app's resource directory — the parent of `flow/`, `facts/`, `locales/`, `website-static/`, `scenarios/`. */
   def resourcesDir: os.Path = resourceRoot / appId

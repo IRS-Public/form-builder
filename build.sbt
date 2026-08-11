@@ -6,10 +6,17 @@ scalafmtConfig := file(".scalafmt.conf")
 // the tax product on top. Published to the local Ivy cache with `sbt publishLocal`, exactly as
 // ../fact-graph is, and consumed by each app's build.sbt.
 //
-// The other library an app depends on is `taxpert` (../taxpert), and the two answer different
-// questions. Formative decides what the site *is*; Taxpert is the workspace laid over a running
-// Formative app to make it understandable — the nav, the inspector, the outcome tracker. An app
-// can ship without Taxpert; it cannot exist without this.
+// The other library an app may depend on is `taxpert` (../taxpert), and the two answer different
+// questions. Formative decides what the site *is* — including how it looks and how it behaves in a
+// browser: `src/main/resources/formative/website-static/` carries the theme and the flow runtime, and
+// FormativeAssets.scala extracts them from this jar as the generator runs. Taxpert is the workspace
+// laid over a running Formative app to make it understandable — the nav, the inspector, the outcome
+// tracker. An app can ship without Taxpert; it cannot exist without this.
+//
+// That sentence was false for a while: the theme and the flow runtime lived in taxpert, which made the
+// optional package a hard build dependency of every app. Keep it true. Nothing in this library may
+// name a path inside `vendor/taxpert/` — the workspace mounts through the empty
+// `fragments/workspace-*.html` an app fills in.
 //
 // This code was credit-assistant's `src/main/scala/gov/irs/creditassistant/` — the same code the
 // tax-withholding-estimator had a forked copy of, differing only by its package and import lines.

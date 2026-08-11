@@ -13,4 +13,14 @@ object Flags {
   // the panel by fragments/audit-panel.html; the Workspace settings modal can override either.
   val aiScenarioGeneration = "aiScenarioGeneration"
   val aiFactExplanation = "aiFactExplanation"
+
+  /** Emit `resources/formative-graph.json` — the Formative Graph Model that Fact Explorer reads. Off by default: it is
+    * a development aid, and a production build is the flow and nothing else.
+    */
+  val formativeGraph = "formativeGraph"
+
+  // A note for whoever adds the next flag. The cookiecutter's post_gen_project.py removes a flag from the generated
+  // Makefile with a bare `text.replace(" " + flag, "")`, so a new name that is a *prefix* of an existing one silently
+  // corrupts it — adding `--scenario` would leave `Mode` behind in every `sbt run` line that had `--scenarioMode`.
+  // None of the names above collide that way; keep it so.
 }

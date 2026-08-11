@@ -23,6 +23,9 @@
               th:text="${scenario.label}"></option>
    </template>
 </taxpert-audit-panel>
-<script type="module" th:inline="javascript">
-   import /*[[|${basePath}/resources/vendor/taxpert/audit-panel/js/taxpert-audit-panel.js|]]*/ ''
-</script>
+<!--/*
+  No module import here. The element's definition is loaded once, from the application's
+  fragments/workspace-head.html, which every page that renders this fragment also renders — and the
+  scaffold names no path inside `vendor/taxpert/`. Until that module runs this is inert markup, which
+  is what makes placing it here safe. */-->
+

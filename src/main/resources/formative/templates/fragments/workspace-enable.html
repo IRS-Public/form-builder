@@ -1,0 +1,12 @@
+<!--/*
+  Switching the workspace on at page load, if the application wants that. The empty default.
+
+  Rendered at the end of <body> by both `page.html` and `all-screens.html`, inside their
+  `--auditMode` gate — at the end because the workspace reads the flow's markup and the fact graph,
+  which have to exist first.
+
+  Empty here for the same reason `fragments/workspace-head.html` is: the call is
+  `enable()` from taxpert's audit-panel module, and naming that path is the application's business,
+  not the scaffold's. See `fragments/workspace-head.html` for the full argument.
+*/-->
+<th:block th:fragment="workspace-enable"></th:block>

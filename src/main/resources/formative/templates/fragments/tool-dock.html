@@ -13,10 +13,15 @@
     <taxpert-tool-dock th:attr="hidden=${flags.auditMode} ? null : 'hidden'"></taxpert-tool-dock>
 
     <script type="module">
-        // The nav owns the workspace switch; the dock and the audit panel both follow it. The
-        // panel's own enable()/disable() wiring lives in fragments/taxpert-global-nav.html.
+        // The nav owns the workspace switch; the dock and the audit panel both follow it. The panel's
+        // own enable()/disable() wiring is in the application's fragments/workspace-head.html, since
+        // it needs a path into taxpert and this library names none.
+        //
+        // Listened for on `document` rather than on the nav element: the event is dispatched with
+        // bubbles+composed, and this way the two listeners do not have to agree about which of the two
+        // elements parses first.
         const dock = document.querySelector('taxpert-tool-dock')
-        document.querySelector('taxpert-global-nav')?.addEventListener('workspace-toggle', (event) => {
+        document.addEventListener('workspace-toggle', (event) => {
             dock?.toggleAttribute('hidden', !event.detail.on)
         })
     </script>

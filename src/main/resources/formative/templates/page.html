@@ -142,17 +142,16 @@
     <div th:replace="fragments/audit-panel"></div>
     <div th:replace="fragments/tool-dock"></div>
 </th:block>
-<!--/* Thymeleaf does not touch script bodies unless asked, so the module specifier is inlined
-       explicitly. An import specifier has to be a string literal syntactically, and JavaScript
-       inlining emits exactly that — a quoted, escaped string in place of the comment.
+<!--/* Switching the workspace on at load, if this application wants that. Application-owned, because
+       the call comes out of taxpert and this library names no path inside taxpert — see
+       fragments/workspace-head.html. Last in <body> because the workspace reads the flow's markup and
+       the fact graph, which have to exist first.
 
-       A parser-level comment, not an HTML one: the script below is gated on a flag, and an HTML
-       comment would outlive it into every page built with the flag off. */-->
-<script type="module" th:if="${flags.auditMode}" th:inline="javascript">
-    // If configured, automatically enable Audit Mode on startup
-    import { enable } from /*[[|${basePath}/resources/vendor/taxpert/audit-panel/js/taxpert-audit-panel.js|]]*/ ''
-    enable()
-</script>
+       A parser-level comment, not an HTML one: this is gated on a flag, and an HTML comment would
+       outlive it into every page built with the flag off. */-->
+<th:block th:if="${flags.auditMode}">
+    <div th:replace="fragments/workspace-enable :: workspace-enable"></div>
+</th:block>
 
 </body>
 </html>

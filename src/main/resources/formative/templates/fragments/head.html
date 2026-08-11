@@ -20,11 +20,39 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="apple-touch-icon-precomposed" sizes="72x72" th:href="|${basePath}/resources/img/apple-icon-72x72.png|" />
 <link rel="stylesheet" th:href="|${basePath}/resources/styles/main.css|" />
 
+<!--/* What the flow runtime needs to know about this application, read by runtime-config.js.
+       Ungated on purpose: the runtime is what a generated questionnaire *runs on*, whether or not the
+       site was built with --auditMode. These values used to arrive only through the workspace's own
+       fragments/taxpert-config.html, which sits inside the --auditMode block below — so a site built
+       without the workspace silently ran on a shared default storage prefix, and two such apps served
+       from one origin rehydrated each other's fact graph out of sessionStorage.
+
+       <meta> rather than an inline module that calls configureRuntime(): fg-fact-graph.js reads the
+       stored graph at its top level, so a configuring script would have to execute before it. Document
+       order does guarantee that, but silently — put the block in the wrong place and the page still
+       renders, just against the wrong key. Meta tags are parsed before any module runs, so there is
+       no order to get wrong. The names are listed in runtime-config.js's META_KEYS.
+
+       basePath is sent even though runtime-paths.js can derive it from its own import.meta.url,
+       because that derivation fails *silently* when it fails: basePath becomes '' and every link
+       quietly turns root-relative. The server knows the real answer for nothing. Sending it also
+       hardens everything built on top of it — resourceUrl() falls back through appBasePath(), so the
+       fact dictionary and the fact-graph engine resolve correctly even if the self-location breaks.
+       Their full URLs are deliberately *not* sent: that would put the vendored engine's version
+       number in a second place to bump. */-->
+<meta name="formative:storage-prefix" th:content="${app.storageKeyPrefix}" />
+<meta name="formative:base-path" th:content="${basePath}" />
+
 <script type="module" th:src="|${basePath}/resources/js/fg-components.js|"></script>
-<script type="module" th:src="|${basePath}/resources/vendor/taxpert/flow-runtime/js/modals.js|"></script>
+<script type="module" th:src="|${basePath}/resources/vendor/formative/flow-runtime/js/modals.js|"></script>
 
 <!--
-  The shared Taxpert workspace (the `taxpert` package), built in only for an --auditMode build.
+  The workspace slot, filled only in an --auditMode build.
+
+  Two application-owned fragments, and the scaffold names nothing inside either of them: what mounts
+  a workspace is `taxpert`'s business and an app's, not this library's. See
+  fragments/workspace-head.html for why that seam exists rather than the paths being spelled out
+  here, and fragments/taxpert-config.html for the configuration half.
 
   `flags` is set on the page context but not on the all-screens one, so `flags != null` is exactly
   "this is a product page" — the only place the workspace mounts. all-screens is generated with the
@@ -33,25 +61,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   its own.
 -->
 <th:block th:if="${flags != null and flags.auditMode}">
-  <link rel="stylesheet" th:href="|${basePath}/resources/vendor/taxpert/audit-panel/styles/audit-panel.css|" id="audit-panel-styles" disabled />
-  <!-- The global nav clones its markup from this file, and it is the first thing on every page, so
-       start the fetch alongside the module rather than after it parses. (The audit panel's templates
-       need no preload: it is invisible until enableAuditMode(), by which time they have landed.) -->
-  <link rel="preload" as="fetch" crossorigin
-        th:href="|${basePath}/resources/vendor/taxpert/global-nav/templates/global-nav.html|" />
-
-  <script type="module" th:src="|${basePath}/resources/vendor/taxpert/audit-panel/js/taxpert-audit-panel.js|"></script>
-  <script type="module" th:src="|${basePath}/resources/vendor/taxpert/global-nav/js/taxpert-global-nav.js|"></script>
-  <!-- The workspace tool panels (the nav's Tools button). Unlike the audit panel's, this stylesheet is
-       not behind a toggled `disabled` link: it is scoped entirely to the bundle's own custom elements
-       and .ttd-/.ttp-/.ttm- classes, so it restructures nothing in the product page — the same reason
-       global-nav.css loads unconditionally through main.css. The dock hides itself unless a tool is
-       switched on, and fragments/tool-dock.html keeps it `hidden` while the workspace is off. -->
-  <script type="module" th:src="|${basePath}/resources/vendor/taxpert/tool-panels/js/taxpert-tool-dock.js|"></script>
-  <!-- Everything the shared workspace knows about this application: the nav taxonomy, the endpoints,
-       the feature flags, the outcomes the tracker follows. taxpert ships with none of it, and
-       reads the configuration when an element renders rather than when it loads — so this may sit
-       before or after the module tags above. See fragments/taxpert-config.html. -->
+  <div th:replace="fragments/workspace-head :: workspace-head"></div>
   <div th:replace="fragments/taxpert-config :: taxpert-config"></div>
 </th:block>
 

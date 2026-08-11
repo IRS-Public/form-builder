@@ -1,0 +1,29 @@
+.usa-step-indicator__segment .usa-step-indicator__link:link,
+.usa-step-indicator__segment .usa-step-indicator__link:visited{
+  color: var(--color-base);
+  text-decoration: none;
+}
+
+.usa-step-indicator__segment .usa-step-indicator__link:hover {
+  text-decoration: underline;
+}
+
+.usa-step-indicator__segment--current .usa-step-indicator__link:link,
+.usa-step-indicator__segment--current .usa-step-indicator__link:visited{
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+
+
+.usa-step-indicator__segment--complete .usa-step-indicator__link:link,
+.usa-step-indicator__segment--complete .usa-step-indicator__link:visited{
+  color: var(--color-primary-dark);
+  text-decoration: underline;
+}
+
+/* This corrects and issue where the screen reader text for was being read immediately after the step label as a single word. */
+.usa-step-indicator__segment-label span:first-child::after {
+  content: " ";
+  white-space: pre;
+}

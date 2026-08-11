@@ -3,6 +3,7 @@ package gov.irs.formative.generators
 import gov.irs.formative.build.Flags
 import gov.irs.formative.parser.Flow
 import gov.irs.formative.FormativeApp
+import gov.irs.formative.FormativeAssets
 import gov.irs.formative.FormativeTemplateEngine
 import io.circe.Printer
 import org.jsoup.parser.Tag
@@ -55,6 +56,7 @@ case class Website(
     factDictionary: xml.Elem,
     flowManifestJson: Option[String] = None,
     scenariosSourceDir: Option[os.Path] = None,
+    formativeGraphJson: Option[String] = None,
 ) {
   def save(directoryPath: Path, app: FormativeApp): Unit = {
     os.remove.all(directoryPath)
@@ -69,10 +71,18 @@ case class Website(
     val resourcesTarget = directoryPath / "resources"
     os.copy(resourcesSource, resourcesTarget)
 
+    // The library's own browser assets — the theme and the flow runtime — extracted out of this jar into the same
+    // `vendor/` shape the app's committed vendor directories use. See FormativeAssets.
+    FormativeAssets.extractInto(resourcesTarget)
+
     val dictionaryString = factDictionary.toString
     os.write(resourcesTarget / "fact-dictionary.xml", dictionaryString, null)
 
     flowManifestJson.foreach(json => os.write(resourcesTarget / "flow-manifest.json", json, null))
+
+    // The Formative Graph Model, served at {basePath}/resources/formative-graph.json. Fact
+    // Explorer fetches it from the running app through its dev proxy — no copy step to go stale.
+    formativeGraphJson.foreach(json => os.write(resourcesTarget / "formative-graph.json", json, null))
 
     scenariosSourceDir.foreach { srcDir =>
       if (os.exists(srcDir)) {
@@ -87,6 +97,7 @@ object Website {
       flow: Flow,
       dictionaryXml: xml.Elem,
       flags: Map[String, Boolean],
+      formativeGraphJson: Option[String] = None,
   )(using app: FormativeApp): Website = {
     val supportedLocales = app.locales
     val locales = app.localeCodes
@@ -213,6 +224,6 @@ object Website {
       Printer.spaces2.print(FlowManifest.buildJson(flow, app.defaultLocale, app))
     }
 
-    Website(pages, dictionaryXml, manifestJson, scenariosSource)
+    Website(pages, dictionaryXml, manifestJson, scenariosSource, formativeGraphJson)
   }
 }

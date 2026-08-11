@@ -3,7 +3,7 @@
 <head>
     <meta th:replace="fragments/head">
     <link rel="stylesheet" th:href="|${basePath}/resources/styles/all-screens.css|">
-    <link rel="stylesheet" th:href="|${basePath}/resources/vendor/taxpert/audit-panel/styles/all-screens-toolbar.css|">
+    <div th:replace="fragments/workspace-all-screens :: workspace-all-screens-head"></div>
 </head>
 
 <body class="view--column all-screens" th:classappend="${flags.auditMode} ? 'audit-mode'">
@@ -79,12 +79,10 @@
 
 <div th:replace="fragments/audit-panel"></div>
 <div th:replace="fragments/tool-dock"></div>
-<script type="module" th:if="${flags.auditMode}">
-    // If configured, automatically enable Audit Mode on startup
-    import { enable } from '${basePath}/resources/vendor/taxpert/audit-panel/js/taxpert-audit-panel.js'
-    enable()
-</script>
-<script type="module" th:src="|${basePath}/resources/vendor/taxpert/audit-panel/js/all-screens-toolbar.js|"></script>
+<th:block th:if="${flags.auditMode}">
+    <div th:replace="fragments/workspace-enable :: workspace-enable"></div>
+</th:block>
+<div th:replace="fragments/workspace-all-screens :: workspace-all-screens-body"></div>
 <script type="module" th:src="|${basePath}/resources/js/all-screens-bootstrap.js|"></script>
 </body>
 </html>

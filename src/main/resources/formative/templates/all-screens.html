@@ -9,34 +9,14 @@
 <body class="view--column all-screens" th:classappend="${flags.auditMode} ? 'audit-mode'">
 <a class="usa-skipnav" href="#main-content">Skip to main content</a>
 <div class="app-container">
+    <!--/* Browse All and Path Mode are workspace surfaces, not the product: they list every screen of
+           the flow side by side rather than presenting one. The government banner and the IRS
+           logo-banner are the *product's* chrome — showing them here dresses a developer tool as the
+           real thing, so they are rendered only by page.html. The language switcher they carried
+           goes with them; language is reachable from the Display modal, which the global nav offers
+           on both of these destinations. */-->
     <header>
         <div th:replace="fragments/taxpert-global-nav"></div>
-        <div th:replace="fragments/usa-banner"></div>
-        <div class="logo-banner">
-            <div class="grid-container">
-                <a href="https://www.irs.gov" th:aria-label="#{layout.irs.domain}">
-                    <img th:src="|${basePath}/resources/img/irs-logo.svg|" alt="" />
-                </a>
-
-                <div class="language-switcher">
-                    <label class="usa-sr-only" for="language-selector">Select Language</label>
-
-                    <select class="usa-select"
-                            id="language-selector"
-                            name="language-selector"
-                            onchange="if(this.value) window.location.href=this.value">
-
-                        <option value="" disabled selected>Select Language</option>
-
-                        <option th:each="lang : ${supportedLocales}"
-                                th:value="${lang.key == app.defaultLocale} ? |${basePath}${currentPageRoute}| : |${basePath}/${lang.key}${currentPageRoute}|"
-                                th:text="${lang.value}">
-                        </option>
-
-                    </select>
-                </div>
-            </div>
-        </div>
     </header>
     <taxpert-screens-toolbar id="screens-toolbar"></taxpert-screens-toolbar>
 

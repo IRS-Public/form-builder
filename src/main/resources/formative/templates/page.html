@@ -18,6 +18,19 @@
                unconditionally and the condition is never read. */-->
         <th:block th:if="${flags.auditMode}">
             <div th:replace="fragments/taxpert-global-nav"></div>
+            <!--/* The sub-nav, naming which workspace destination this is — the same bar Browse All and
+                   Path Mode carry (all-screens.html mounts the same element, taking its mode from the
+                   URL). Here the mode is stated, because the Product Experience is its own template
+                   rather than a `?mode=` on the listing page.
+
+                   Just the tag, like fragments/taxpert-global-nav: an unknown element name is inert
+                   markup, so the scaffold can place it without depending on the package that defines
+                   it. What upgrades and styles it is the application's own fragments/workspace-head.html.
+
+                   Inside the --auditMode gate because it is workspace chrome: a production build has
+                   no workspace, and "Product Experience" is a name only the workspace has for the
+                   thing the product just calls itself. */-->
+            <taxpert-screens-toolbar mode="product"></taxpert-screens-toolbar>
         </th:block>
         <div th:replace="fragments/usa-banner"></div>
         <div class="logo-banner">

@@ -6,6 +6,9 @@ object Flags {
   val auditMode = "auditMode"
   val singleQuestionPerScreen = "singleQuestionPerScreen"
   val scenarioMode = "scenarioMode"
+  // Also the build-time default for the runtime `author-mode` feature flag in taxpert's
+  // feature-flags.js (handed to the panel by fragments/audit-panel.html), which an app can use to
+  // gate its "Authoring Suite" nav item — see credit-assistant's taxpert-config.html.
   val authorMode = "authorMode"
   // The two AI features are flagged separately — generation writes a whole Fact Graph from a
   // prompt, explanation only reads facts back, and they ship on their own timelines. Each is the

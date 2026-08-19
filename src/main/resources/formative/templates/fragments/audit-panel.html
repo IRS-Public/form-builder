@@ -14,7 +14,8 @@
    th:attr="scenarios-base=|${basePath}/resources/scenarios|,
             fact-dictionary-url=|${basePath}/resources/fact-dictionary.xml|,
             ai-scenario-generation-default=${flags.aiScenarioGeneration != null and flags.aiScenarioGeneration ? 'true' : 'false'},
-            ai-fact-explanation-default=${flags.aiFactExplanation != null and flags.aiFactExplanation ? 'true' : 'false'}">
+            ai-fact-explanation-default=${flags.aiFactExplanation != null and flags.aiFactExplanation ? 'true' : 'false'},
+            author-mode-default=${flags.authorMode != null and flags.authorMode ? 'true' : 'false'}">
    <!-- Host-supplied scenario options (light-DOM children, read on connect). Wrapped in a
         <template> so the page HTML stays valid; only emitted in scenario mode. -->
    <template th:if="${flags.scenarioMode and scenarios != null and !scenarios.isEmpty()}">

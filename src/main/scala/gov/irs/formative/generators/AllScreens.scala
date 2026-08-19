@@ -57,7 +57,13 @@ object AllScreens {
 
     context.setVariable("languageCode", languageCode)
     context.setVariable("supportedLocales", supportedLocales.asJava)
-    context.setVariable("currentPageRoute", "/all-screens")
+    // Trailing slash, matching what Website.scala normalizes a page route to and what this page is
+    // actually served at (WebsitePage.filepath writes `all-screens/index.html`). The language
+    // switcher in all-screens.html builds one route per locale out of this, and the Display modal
+    // preselects the current language by comparing those routes with location.pathname — which ends
+    // in a slash, so without one here every option looked like a different page than the one on
+    // screen and the control opened on "Select Language" instead of the language you were reading.
+    context.setVariable("currentPageRoute", "/all-screens/")
     context.setVariable("flags", flags.asJava)
     context.setVariable("scenarios", scenarios)
     // Active item in the shared global nav (see the `taxpert` package). This one generated page backs both

@@ -9,29 +9,36 @@
 <body th:classappend="${flags.auditMode} ? 'audit-mode'">
 <a class="usa-skipnav" href="#main-content" th:text="#{layout.skip-to-main}"></a>
 <div class="app-container">
+    <!--/* The Taxpert workspace is a developer surface: the nav, the panel and the tool dock are built only
+           into an --auditMode build, and are absent from a plain production build entirely.
+
+           The condition sits on a wrapping th:block, not on the replaced element: th:replace is
+           processed at a higher precedence than th:if, so an element carrying both is replaced
+           unconditionally and the condition is never read.
+
+           OUTSIDE the product's <header>, and directly inside the scrolling container, because both
+           bars pin themselves to the top of the scroll (position: sticky, in global-nav.css and
+           all-screens-toolbar.css). A sticky box can only travel within its parent's box, so inside
+           <header> the two would have unstuck the moment the government banner and the IRS logo band
+           below them scrolled past — which is most of a screen into any page. It is also where they
+           belong: this is the workspace's chrome, not the product's masthead. */-->
+    <th:block th:if="${flags.auditMode}">
+        <div th:replace="fragments/taxpert-global-nav"></div>
+        <!--/* The sub-nav, naming which workspace destination this is — the same bar Browse All and
+               Path Mode carry (all-screens.html mounts the same element, taking its mode from the
+               URL). Here the mode is stated, because the Product Experience is its own template
+               rather than a `?mode=` on the listing page.
+
+               Just the tag, like fragments/taxpert-global-nav: an unknown element name is inert
+               markup, so the scaffold can place it without depending on the package that defines
+               it. What upgrades and styles it is the application's own fragments/workspace-head.html.
+
+               Inside the --auditMode gate because it is workspace chrome: a production build has
+               no workspace, and "Product Experience" is a name only the workspace has for the
+               thing the product just calls itself. */-->
+        <taxpert-screens-toolbar mode="product"></taxpert-screens-toolbar>
+    </th:block>
     <header>
-        <!--/* The Taxpert workspace is a developer surface: the nav, the panel and the tool dock are built only
-               into an --auditMode build, and are absent from a plain production build entirely.
-
-               The condition sits on a wrapping th:block, not on the replaced element: th:replace is
-               processed at a higher precedence than th:if, so an element carrying both is replaced
-               unconditionally and the condition is never read. */-->
-        <th:block th:if="${flags.auditMode}">
-            <div th:replace="fragments/taxpert-global-nav"></div>
-            <!--/* The sub-nav, naming which workspace destination this is — the same bar Browse All and
-                   Path Mode carry (all-screens.html mounts the same element, taking its mode from the
-                   URL). Here the mode is stated, because the Product Experience is its own template
-                   rather than a `?mode=` on the listing page.
-
-                   Just the tag, like fragments/taxpert-global-nav: an unknown element name is inert
-                   markup, so the scaffold can place it without depending on the package that defines
-                   it. What upgrades and styles it is the application's own fragments/workspace-head.html.
-
-                   Inside the --auditMode gate because it is workspace chrome: a production build has
-                   no workspace, and "Product Experience" is a name only the workspace has for the
-                   thing the product just calls itself. */-->
-            <taxpert-screens-toolbar mode="product"></taxpert-screens-toolbar>
-        </th:block>
         <div th:replace="fragments/usa-banner"></div>
         <div class="logo-banner">
             <div class="grid-container">

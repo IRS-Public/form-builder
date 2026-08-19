@@ -12,13 +12,36 @@
     <!--/* Browse All and Path Mode are workspace surfaces, not the product: they list every screen of
            the flow side by side rather than presenting one. The government banner and the IRS
            logo-banner are the *product's* chrome — showing them here dresses a developer tool as the
-           real thing, so they are rendered only by page.html. The language switcher they carried
-           goes with them; language is reachable from the Display modal, which the global nav offers
-           on both of these destinations. */-->
-    <header>
-        <div th:replace="fragments/taxpert-global-nav"></div>
-    </header>
+           real thing, so they are rendered only by page.html.
+
+           The two bars are direct children of the scrolling container, not wrapped in a <header>:
+           each pins itself to the top of the scroll and a sticky box cannot leave its parent's box,
+           so a wrapper sized to the nav would have given the nav nowhere to stick. See the same
+           arrangement, and the same reasoning, in page.html. */-->
+    <div th:replace="fragments/taxpert-global-nav"></div>
     <taxpert-screens-toolbar id="screens-toolbar"></taxpert-screens-toolbar>
+
+    <!--/* The product's visible language switcher is part of the chrome this page deliberately does
+           not render (above). Language is still a choice here — it is one of the Display options,
+           which the global nav offers on both listing destinations — and the Display modal builds
+           that control by mirroring this one, so that the routes stay the server's rather than
+           becoming a second locale list inside the workspace. Hence a real, complete <select> that
+           is never shown: it is the data the modal reads, in the markup that already knows how to
+           write it.
+
+           Its routes name the page and not the destination, because the server cannot see a query
+           string and one generated page is both Browse All and Path Mode; <taxpert-screens-toolbar>
+           adds `?mode=` back on the page that needs it. */-->
+    <div class="all-screens__language-source" hidden>
+        <label for="language-selector">Select Language</label>
+        <select class="usa-select" id="language-selector" name="language-selector">
+            <option value="" disabled selected>Select Language</option>
+            <option th:each="lang : ${supportedLocales}"
+                    th:value="${lang.key == app.defaultLocale} ? |${basePath}${currentPageRoute}| : |${basePath}/${lang.key}${currentPageRoute}|"
+                    th:text="${lang.value}">
+            </option>
+        </select>
+    </div>
 
     <div class="usa-in-page-nav-container">
         <main id="main-content" class="main-content usa-prose">

@@ -1,25 +1,71 @@
 # formative
 
-`gov.irs::formative` — everything that turns **Flow XML + a Fact Dictionary** into a static site,
-with no tax product on top.
+`gov.irs::formative` is a Scala 3 library that turns **Flow XML plus a Fact Dictionary** into a
+static, multi-language questionnaire site. You describe the questions in XML, describe the tax facts
+behind them in a fact dictionary, and the library parses both, renders every page in every language,
+and writes the result to `./out` as plain HTML.
 
-This is the half of the stack that decides what the site *is*. The other half, [`taxpert`](../taxpert),
-is the workspace laid over the running result to make it understandable. An app needs this one to
-exist; it needs Taxpert only to be inspectable.
+It also ships the browser half of that site inside its own jar. The theme (design tokens, page
+layout, the styling for every element the generators emit) and the flow runtime (the `<fg-set>` /
+`<fg-collection>` / `<fg-show>` custom elements, the Fact Graph bootstrap, navigation and validation)
+live as classpath resources and are extracted into the generated site as it builds. One Scala
+dependency is enough to get a styled, working questionnaire, with no npm step in the app.
 
+An application built on this library is called a **Formative app**. Its whole Scala surface is one
+`FormativeApp` value and one call to `Formative.run`.
+
+## Where it fits
+
+| Component | What it is |
+|---|---|
+| [`../fact-graph`](../fact-graph) | `gov.irs::factgraph`, the evaluation engine. Cross-compiled: a JVM jar this library builds against, and a Scala.js bundle the browser runs. |
+| **`formative`** (here) | The scaffold. Parser, generators, Thymeleaf engine, node templates, chrome locales, RELAX NG schemas, theme and flow runtime. |
+| [`../taxpert`](../taxpert) | The workspace UI (`taxpert` on npm): global nav, audit panel, tool panels. Optional. An app can ship without it. |
+| [`../formative-template`](../formative-template) | A cookiecutter that generates a new Formative app. |
+| [`../credit-assistant`](../credit-assistant), [`../tax-withholding-estimator`](../tax-withholding-estimator) | The two Formative apps that exist. Each is flow XML, facts, locales, brand CSS, and a small `Main.scala`. |
+| [`../fact-explorer`](../fact-explorer) | A React/Vite SPA that visualizes any Formative app's flow and facts as a graph, reading the JSON this library emits under `--formativeGraph`. |
+
+The dependency runs one way. This library names no path inside `vendor/taxpert/`, and nothing here
+imports from the workspace package. Grep the template tree for `vendor/taxpert` and every hit is
+prose in a comment.
+
+## Requirements
+
+| Tool | Version |
+|---|---|
+| JDK | 21, which is what the apps' CI runs on |
+| sbt | 1.11.4 (see `project/build.properties`) |
+| Scala | 3.7.2, set by `build.sbt` |
+| Node | 22, only for linting and testing the browser assets |
+
+`gov.irs::factgraph` is not published to a remote yet, so build it first:
+
+```bash
+cd ../fact-graph && make publish
 ```
-gov.irs::factgraph   evaluation engine — JVM jar + Scala.js browser bundle
-gov.irs::formative   ← you are here: parser, generators, Thymeleaf engine, node
-                       templates, chrome locales, RNG schemas
-taxpert              the workspace (nav / audit panel / tool panels) + flow runtime + theme
-──────────────────────────────────────────────────────────────────────────────────────────
-the app              flow/*.xml, facts/*.xml, locales/*.yaml, its brand CSS, a ~40-line Main.scala
+
+## Build and test
+
+```bash
+sbt test              # ScalaTest suite
+sbt publishLocal      # → ~/.ivy2/local/gov.irs/formative_3/0.1.0-SNAPSHOT/
+sbt scalafmtAll       # format the Scala
+sbt scalafmtCheckAll  # check it, as CI does
+
+npm install           # once, for the JS tooling
+npm test              # node --test over tests/*.test.mjs
+npm run lint          # eslint over the shipped browser assets
+npm run format        # eslint --fix
 ```
+
+There is no scaladoc artifact. `publishLocal` would otherwise run scaladoc, which reads the TASTy of
+every dependency, and factgraph's is cross-built for Scala.js, so its `@JSExport` annotations fail to
+resolve on the JVM classpath. `build.sbt` disables it deliberately.
+
+After publishing, re-run **both** apps' `make ci`. The second app is what catches a change that
+quietly assumed something only the first one does.
 
 ## An app is configuration over this library
-
-`FormativeApp` is the whole of what varies between apps, and `Formative.run(app, args)` is the whole
-entry point. Here is a complete application:
 
 ```scala
 package gov.irs.hellotax
@@ -28,80 +74,263 @@ import gov.irs.formative.{ Formative, FormativeApp }
 import scala.collection.immutable.ListMap
 
 val app: FormativeApp = FormativeApp(
-  appId = "hello-tax",              // resource dir under src/main/resources
-  basePath = "/app/hello-tax",      // URL prefix
-  outSubdir = "app/hello-tax",      // where the site is written under ./out
+  appId = "hello-tax",             // resource directory under src/main/resources
+  basePath = "/app/hello-tax",     // URL prefix, no trailing slash
+  outSubdir = "app/hello-tax",     // where the site is written beneath ./out
   locales = ListMap("en" -> "English", "es" -> "Español"),  // first entry is the default
   defaultPort = 3010,
   brand = "Hello Tax",
+  storagePrefix = Some("hello-tax"),
 )
 
 @main def main(args: String*): Unit = Formative.run(app, args)
 ```
 
-`appId`, the URL segment and the sbt project name are deliberately **independent**. credit-assistant
-proves it: it lives in `credit-assistant/`, keeps its resources under `credit-assistant/`, and serves
-from `/app/eitc`.
+Every `FormativeApp` field:
 
-To start a new one, don't copy an existing app — run the cookiecutter:
+| Field | Meaning |
+|---|---|
+| `appId` | The app's directory under `src/main/resources`, and the classpath prefix its own templates resolve from. |
+| `basePath` | The URL prefix every generated link and asset href is built from. Templates read `${basePath}` rather than spelling it out. |
+| `outSubdir` | Where the site is written beneath `./out`. Usually `basePath` without the leading slash, kept separate so a deployment can differ. |
+| `locales` | Language code to native display name, in switcher order. The first entry is generated at the site root, every other one under `/{code}/`. |
+| `defaultPort` | The dev server's port when `-Dsmol.port` says nothing. |
+| `brand` | The product name, used in the dev server's startup banner. |
+| `storagePrefix` | Namespaces every browser storage key the generated site writes. Defaults to `appId`. Two Formative apps on one origin will not rehydrate each other's fact graph. |
+| `nodeTypes` | Extension point: flow XML element name to `FlowNodeParser`. |
+| `inputTypes` | Extension point: `<input type="…">` value to `InputParser`. |
+| `resourceRoot` | The source tree flow, facts, locales and static assets are read from. Defaults to `os.pwd / "src" / "main" / "resources"`. |
+
+`appId`, the URL segment and the sbt project name are independent on purpose. credit-assistant lives
+in `credit-assistant/`, keeps its resources under `credit-assistant/`, and serves from `/app/eitc`.
+
+Adding an app's name, URL segment or storage prefix to a file in this library is a sign the value
+belongs in that app's `FormativeApp` instead.
+
+To start a new app, run the cookiecutter rather than copying an existing one:
 
 ```bash
 cookiecutter ../formative-template
 ```
 
-## The four seams
+## Layout
 
-An app reaches through the library at exactly four points. If you find yourself adding an app's
-name, URL segment or storage prefix to a file in here, that is the bug — it belongs in that app's
-`FormativeApp`.
+```
+formative/
+├── build.sbt                       gov.irs::formative, version 0.1.0-SNAPSHOT
+├── package.json                    lint + test tooling for the shipped browser assets
+├── eslint.config.js
+├── src/main/scala/gov/irs/formative/
+│   ├── Formative.scala             run / regenerate / parseFlow: the whole entry point
+│   ├── FormativeApp.scala          the configuration case class above
+│   ├── FormativeAssets.scala       extracts website-static out of this jar into a built site
+│   ├── FormativeTemplateEngine.scala   two Thymeleaf resolvers, app-first
+│   ├── FactDictionaryLoader.scala  reads and merges facts/*.xml
+│   ├── Locale.scala                the three-layer locale lookup and the generated flow_*.yaml
+│   ├── build/Flags.scala           every --flag the generator understands
+│   ├── parser/                     Flow XML to a tree of FlowNode case classes
+│   ├── generators/                 Website, AllScreens, AuthorMode, FlowManifest, FormativeGraph
+│   └── authoring/                  the Author Mode HTTP backend
+├── src/main/resources/formative/
+│   ├── templates/                  36 Thymeleaf templates (see below)
+│   ├── locales/                    chrome strings in 8 languages
+│   ├── schema/                     FlowConfig.rng, FactDictionaryModule.rng
+│   └── website-static/
+│       ├── theme/styles/           the theme, extracted into vendor/formative/ at build time
+│       └── flow-runtime/js/        the custom elements a generated questionnaire runs on
+├── src/test/                       ScalaTest suite, generated against the Pet Planner fixture
+└── tests/                          node --test suites for the browser assets
+```
 
-**1. Templates — app-first resolution.** Two `ClassLoaderTemplateResolver`s: `/{appId}/templates/`
-is tried first (`setCheckExistence(true)`, so a miss falls through) and `/formative/templates/`
-second. An app overrides `nodes/inputs/dollar.html` by dropping a same-named file into its own
-resources and inherits the other 29 untouched. The same works for `page.html`, `all-screens.html`
-and every `fragments/*`.
+The 36 templates break down as 19 under `nodes/` (8 of those are `nodes/inputs/`), 13 under
+`fragments/`, and four at the top level: `page.html`, `all-screens.html`, `author-mode.html` and
+`errors.html`.
 
-**2. Locales — layered.** App YAML wins over this library's YAML, which wins over the generated
-`flow_{lang}.yaml`. The library carries the chrome that is identical everywhere — the whole
-`components.*` block and `workspace.tools.*`; an app's `en.yaml` carries only its own words.
+## What a build produces
+
+`Formative.run` parses the flow, regenerates the default-language flow locale file, renders every
+page in every language, and writes the tree under `./out/<outSubdir>/`.
+
+```
+out/<outSubdir>/
+├── index.html                 the default-language pages, one directory per route
+├── es/…                       every other language under its own segment
+└── resources/
+    ├── styles/ js/ img/       the app's own website-static, copied verbatim
+    ├── vendor/formative/      the theme and flow runtime, extracted from the jar
+    ├── fact-dictionary.xml    the merged dictionary the browser engine loads
+    ├── flow-manifest.json     only under --singleQuestionPerScreen
+    ├── formative-graph.json   only under --formativeGraph
+    └── scenarios/             only under --scenarioMode
+```
+
+Flags are positional arguments to `Formative.run`, so an app passes them through `sbt run`:
+
+| Flag | Effect |
+|---|---|
+| `--serve` | Start the embedded `smol` static server. Port from `-Dsmol.port`, else `defaultPort`. |
+| `--allScreens` | Also generate the Browse All page listing every screen at once. |
+| `--auditMode` | Fill the workspace slot in `<head>` and at the end of `<body>`. |
+| `--singleQuestionPerScreen` | Split every page into one question per screen, and emit `flow-manifest.json`. |
+| `--scenarioMode` | Copy `scenarios/*.json` into the site and offer them in the Scenario modal. |
+| `--authorMode` | Generate the Author Mode page and start its HTTP backend on `-Dsmol.author.port` (default 3004, loopback only). |
+| `--aiScenarioGeneration` | Build-time default for the workspace's AI scenario generation flag. |
+| `--aiFactExplanation` | Build-time default for the workspace's AI fact explanation flag. |
+| `--formativeGraph` | Emit `resources/formative-graph.json` for Fact Explorer. Off by default, since a production build is the flow and nothing else. |
+
+A production build passes no flags at all.
+
+## The five extension points
+
+### 1. Templates, resolved app-first
+
+`FormativeTemplateEngine` registers two `ClassLoaderTemplateResolver`s: `/{appId}/templates/` at
+order 1 and `/formative/templates/` at order 2. Both set `setCheckExistence(true)`, so a miss in the
+app's tree falls through to the library's rather than claiming the name.
+
+An app that wants a different money input drops `nodes/inputs/dollar.html` into its own resources and
+inherits the remaining 35 templates untouched. The same works for `page.html`, `all-screens.html` and
+any `fragments/*`.
+
+`process` sets `basePath` and the whole `app` on every context, so a template writes
+`th:href="|${basePath}/resources/…|"` without its caller having to remember.
+
+### 2. Locales, layered
+
+`Locale.get` resolves a key across three layers, app first:
+
+1. the app's own `locales/{lang}.yaml`, read from disk
+2. this library's `/formative/locales/{lang}.yaml`, read from the classpath
+3. the generated `locales/flow_{lang}.yaml`, extracted from the flow XML
+
+The library carries the chrome that is identical everywhere, `components.*` and `workspace.tools.*`,
+in `en`, `es`, `ht`, `ko`, `ru`, `vi`, `zh-hans` and `zh-hant`. An app's `en.yaml` carries only its
+own words, and declaring a chrome key in it wins.
 
 > **Locale tests must compare the layered result**, not the app's file on its own. `chromeLocaleContent`
-> is public for exactly this reason: an app whose English inherits the chrome and whose Spanish
-> overrides it is *not* missing 33 keys, and a raw file-to-file comparison will say it is. See either
-> app's `YamlValidatorSpec`.
+> is public for that reason. An app whose English inherits the chrome and whose Spanish overrides it
+> is not missing keys, though a raw file-to-file comparison will say it is. See either app's
+> `YamlValidatorSpec`.
 
-**3. Node types.** `FormativeApp.nodeTypes` maps a tag name to a `FlowNodeParser`, and the lookup
-falls through to the built-ins and then to `HTML`, as it always did. TWE's
-`fg-withholding-adjustments` is a ~50-line parser that lives in TWE.
+`generateFlowLocaleFile` rewrites `flow_{default}.yaml` on every build, so hand edits to it are lost.
+`syncTranslationLocales` re-keys the translated files against it, seeding new entries with the English
+text under a `# TODO: translate` comment. That one runs only from an Author Mode save, never from a
+normal build, because it rewrites human-maintained files.
 
-**4. Input types.** `FormativeApp.inputTypes` maps an `inputtype` to an `InputParser`. A registration
-may also *replace* a built-in: TWE registers `single-checkbox` (new) and `date` (its own
-`YearRangeDate`, over the library's).
+### 3. Node types
+
+`FormativeApp.nodeTypes` maps a flow XML element name to a `FlowNodeParser`, merged **over**
+`FlowNodeTypes.builtIn`, so an app can add an element or replace one. The built-ins are `fg-alert`,
+`fg-apply`, `fg-collection`, `fg-detail`, `fg-set`, `modal-dialog` and `section`. `<page>` is parsed
+only at the flow config root. Anything unmatched renders as ordinary HTML, which is what lets a flow
+use `<p>` and `<ul>` without registering anything.
+
+tax-withholding-estimator's `fg-withholding-adjustments` is the worked example, and it lives in that
+app, not here.
+
+### 4. Input types
+
+`FormativeApp.inputTypes` maps an `<input type="…">` value to an `InputParser`, checked before the
+built-in `text`, `int`, `boolean`, `enum`, `multi-enum`, `dollar` and `date`. Registering an existing
+name replaces it. TWE registers `single-checkbox` as a new type and `date` as a replacement.
+
+### 5. The workspace mount fragments
+
+Four fragments the library ships **empty** and an app fills in by putting a same-named file in its own
+`templates/fragments/`:
+
+| Fragment | Where it renders | What an app puts in it |
+|---|---|---|
+| `workspace-head.html` | `<head>`, under `--auditMode` | The audit panel stylesheet, a preload for the nav markup, the workspace element modules. |
+| `taxpert-config.html` | `<head>`, under `--auditMode` | The `configure()` call: nav taxonomy, endpoints, determinations, feature flags. |
+| `workspace-enable.html` | End of `<body>`, under `--auditMode` | `enable()` at load, after the flow markup and fact graph exist. |
+| `workspace-all-screens.html` | Browse All, ungated | Two fragments, `-head` and `-body`, for the screens toolbar's stylesheet and module. |
+
+A fifth fragment, `app-head.html`, is the same shape without the workspace: whatever else an app wants
+in `<head>`.
+
+The library decides *that* there is a workspace slot and when it is filled. It does not decide what
+fills it, because that would mean hardcoding the internal file layout of a package it neither depends
+on nor versions. The cost is about 30 lines of mount markup living once per app rather than once here.
+The benefit is that `include_taxpert_workspace: no` in the cookiecutter is a file that is simply not
+emitted, rather than a conditional inside a library template.
+
+## The flow runtime's configuration
+
+The flow runtime reads its configuration from `<meta>` tags that `fragments/head.html` renders
+**ungated**, because a questionnaire runs whether or not it has a workspace over it:
+
+```html
+<meta name="formative:storage-prefix" th:content="${app.storageKeyPrefix}" />
+<meta name="formative:base-path" th:content="${basePath}" />
+```
+
+`website-static/flow-runtime/js/runtime-config.js` seeds itself from those on first use, and
+`configureRuntime()` is available for a bundler or a test that knows better. Two more values,
+`endpoints.factGraphUrl` and `endpoints.factDictionaryUrl`, exist in the config but are not sent as
+meta tags. Both are derived by `resourceUrl()` from `basePath`, and sending them would put the
+vendored engine's version number in a second place to bump.
+
+Meta tags rather than a configuring `<script>`, because `fg-fact-graph.js` reads the stored graph at
+its top level. A script would have to execute before it, which document order does give, but silently.
+Meta tags are parsed before any module runs, so there is no order to get wrong.
+
+This is separate from taxpert's `configure()`. The workspace keeps its own configuration and its own
+storage prefix, and the two never share a storage key, so the two prefixes stay independent without
+either package importing the other.
 
 ## Flow, facts and app locales are read from disk
 
-Deliberately — via `os.read`, not the classpath. Author Mode patches XML on disk and re-runs
-`regenerate` **in-process**, and `Source.fromResource` would keep serving sbt's stale
-`target/…/classes` copy. Only the library's *own* templates and base locales come off the classpath,
-because they are jar resources and never change at runtime.
+`Formative.regenerate` reads them with `os.read` against the source tree, never `Source.fromResource`.
+Author Mode patches those XML files on disk and calls `regenerate` again in-process, which makes sbt's
+`~run` watcher rebuild `target/…/classes` underneath a running process. The classpath copy is then
+either stale or transiently missing.
 
-## Building
+Only the library's own templates, chrome locales and browser assets come off the classpath, because
+nothing edits those at runtime.
 
-```bash
-sbt test          # the library's own specs
-sbt publishLocal  # → ~/.ivy2/local/gov.irs/formative_3/0.1.0-SNAPSHOT/
-```
+One consequence: editing a stylesheet under `website-static/theme/` during a `~run` session hits
+exactly that staleness. Run `sbt publishLocal` and restart the app rather than expecting a live
+reload.
 
-There is no scaladoc artifact: `publishLocal` would run scaladoc, which reads the TASTy of every
-dependency, and factgraph's is cross-built for Scala.js — its `@JSExport` annotations fail to
-resolve on the JVM classpath. The jar and pom are what a consuming app needs.
+## Browser assets
 
-After publishing, re-run **both** apps' `make ci`. The second app is what catches a change that
-quietly assumed something only the first one does.
+`FormativeAssets.extractInto` copies `/formative/website-static` out of this jar into a generated
+site's `resources/vendor/formative/`. It handles both a `file:` URL (running inside this repo under
+`sbt test`, where the resources are loose files in `target/…/classes`) and a `jar:` URL (an app
+consuming the published artifact).
+
+Two things about that destination are load-bearing:
+
+- Templates hardcode the matching URL as `${basePath}/resources/vendor/formative/…`, because Thymeleaf
+  cannot read a Scala constant. Changing `vendorPath` means grepping the templates for
+  `vendor/formative`.
+- The tree must not be flattened. The theme's stylesheet-relative icon URLs walk four levels up from
+  `vendor/formative/theme/styles/<dir>/` to reach `vendor/uswds-3.13.0/img/`.
+
+`makeCollectionIdPath` exists in both this package and taxpert on purpose. Formative is a Scala jar
+rather than an npm package, so taxpert cannot import from it, and a relative path into
+`vendor/formative/` exists only in a built app. Keep the two one-line copies identical.
 
 ## Test fixtures
 
-`src/test/resources/pet-planner/` is a fictional non-tax app, the same device
-[`taxpert`](../taxpert)'s `tests/fixtures/host/` uses on the browser half. A generator spec that
-needs an app builds one over Pet Planner rather than over credit-assistant, so the library cannot
-quietly grow a dependency on the EITC.
+`src/test/resources/pet-planner/` is a fictional non-tax app, and `FixtureApp.scala` is the
+`FormativeApp` built over it. Generator specs run against Pet Planner rather than credit-assistant, so
+the library cannot quietly grow a dependency on the EITC. If a spec can only be made to pass by
+encoding something tax-specific, that behavior probably belongs in an app.
+
+The fixture declares two locales rather than one, so "the default language is generated at the root
+and every other under its own segment" stays exercised.
+
+## Gotchas
+
+- **Nothing here may name a `vendor/taxpert/` path.** The workspace mounts through the empty
+  `fragments/workspace-*.html` an app fills in. This is enforced by reading, not by a test.
+- **`flow_{lang}.yaml` is generated.** Authored text lives in the flow XML. A hand edit to the
+  generated file is lost on the next build.
+- **A new build flag must not be a prefix of an existing one.** The cookiecutter's
+  `post_gen_project.py` strips a flag from a generated Makefile with a bare string replace, so adding
+  `--scenario` would leave `Mode` behind in every line that had `--scenarioMode`.
+- **Author Mode binds loopback only by default.** It can patch source XML, so it must not be reachable
+  off-box. A docker overlay that sets `-Dsmol.author.host=0.0.0.0` relies on the host-side port
+  mapping for that guarantee instead.

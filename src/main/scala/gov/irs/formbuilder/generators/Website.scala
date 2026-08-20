@@ -80,7 +80,7 @@ case class Website(
 
     flowManifestJson.foreach(json => os.write(resourcesTarget / "flow-manifest.json", json, null))
 
-    // The Form Builder Graph Model, served at {basePath}/resources/form-builder-graph.json. Fact
+    // The Form Graph Model, served at {basePath}/resources/form-builder-graph.json. Fact
     // Explorer fetches it from the running app through its dev proxy — no copy step to go stale.
     formBuilderGraphJson.foreach(json => os.write(resourcesTarget / "form-builder-graph.json", json, null))
 

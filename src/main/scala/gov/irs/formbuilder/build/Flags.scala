@@ -17,8 +17,8 @@ object Flags {
   val aiScenarioGeneration = "aiScenarioGeneration"
   val aiFactExplanation = "aiFactExplanation"
 
-  /** Emit `resources/form-builder-graph.json` — the Form Builder Graph Model that Fact Explorer reads. Off by default:
-    * it is a development aid, and a production build is the flow and nothing else.
+  /** Emit `resources/form-builder-graph.json` — the Form Graph Model that Fact Explorer reads. Off by default: it is a
+    * development aid, and a production build is the flow and nothing else.
     */
   val formBuilderGraph = "formBuilderGraph"
 

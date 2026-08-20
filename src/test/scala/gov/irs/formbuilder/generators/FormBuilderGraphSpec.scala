@@ -8,7 +8,7 @@ import io.circe.Json
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers.*
 
-/** The Form Builder Graph Model generator, against Pet Planner.
+/** The Form Graph Model generator, against Pet Planner.
   *
   * Everything here is inline XML — `buildJson` reads no disk precisely so that this spec does not have to invent a
   * fixture app on the filesystem, and so the graph's shape can be asserted one construct at a time.

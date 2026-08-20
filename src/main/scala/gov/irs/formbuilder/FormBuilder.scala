@@ -155,7 +155,7 @@ object FormBuilder {
       else parsedFlow
     generateFlowLocaleFile(flow.translationContext.translationMap, app)
 
-    // The Form Builder Graph Model describes the *authored* flow, so it is built from `parsedFlow` and
+    // The Form Graph Model describes the *authored* flow, so it is built from `parsedFlow` and
     // not from `flow` — the latter has already been exploded into one question per page under
     // --singleQuestionPerScreen, and the graph should not change shape with an unrelated flag.
     val formBuilderGraphJson = Option.when(flags.contains(Flags.formBuilderGraph)) {

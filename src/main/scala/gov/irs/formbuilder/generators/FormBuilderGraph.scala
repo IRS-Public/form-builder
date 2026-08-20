@@ -7,7 +7,7 @@ import scala.xml.Elem
 import scala.xml.Node
 import scala.xml.NodeSeq
 
-/** Emits the **Form Builder Graph Model** — the JSON Fact Explorer renders as an interactive graph.
+/** Emits the **Form Graph Model** — the JSON Fact Explorer renders as an interactive graph.
   *
   * Four slices, and one contract:
   *   - `flowPages` — one per rendered page (route, title, source module, the ids of its elements)

@@ -11,7 +11,7 @@ ThisBuild / scalaVersion := "3.7.2"
 // Set GITHUB_OWNER to the org these repos live under. GITHUB_ACTOR / GITHUB_TOKEN are what a
 // GitHub Actions job already provides; locally, a classic PAT with `read:packages` (consume) or
 // `write:packages` (publish) works.
-val githubOwner = sys.env.getOrElse("GITHUB_OWNER", "REPLACE-ME-ORG")
+val githubOwner = sys.env.getOrElse("GITHUB_OWNER", "IRS-Public")
 
 ThisBuild / publishTo := Some(
   "GitHub Packages" at s"https://maven.pkg.github.com/$githubOwner/formative"
@@ -23,13 +23,15 @@ ThisBuild / credentials += Credentials(
   sys.env.getOrElse("GITHUB_TOKEN", ""),
   )
 
-// fact-graph is a separate, already-open-sourced repo and is no longer built beside this one, so
-// `gov.irs:factgraph` has to resolve from a registry rather than from ~/.ivy2/local.
+// gov.irs:factgraph is deliberately NOT resolved through GitHub Packages — fact-graph is consumed
+// as a plain library, independent of any GitHub-native service. It is on neither Maven Central nor
+// GitHub Packages today, so the one mechanism that works is a local publish from a checkout:
 //
-// OPEN: this assumes fact-graph publishes to the same org's GitHub Packages. If it publishes only
-// source, this resolver finds nothing and the alternative is a documented
-// `git clone … && sbt publishLocal` bootstrap in the README.
-ThisBuild / resolvers += "factgraph" at s"https://maven.pkg.github.com/$githubOwner/fact-graph"
+//   git clone <fact-graph> && cd fact-graph && sbt publishLocal
+//
+// which lands 3.1.0-SNAPSHOT in ~/.ivy2/local, already first in sbt's default resolver chain.
+// No resolver line belongs here: if fact-graph is later published to Maven Central, that is a
+// default resolver too, and this build picks it up with no change. See README.md.
 
 scalafmtConfig := file(".scalafmt.conf")
 

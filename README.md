@@ -38,11 +38,35 @@ prose in a comment.
 | Scala | 3.7.2, set by `build.sbt` |
 | Node | 22, only for linting and testing the browser assets |
 
-`gov.irs::factgraph` is not published to a remote yet, so build it first:
+### Getting `gov.irs::factgraph`
+
+Fact Graph is a separate library, consumed independently of any GitHub-native service. It is
+published to neither Maven Central nor GitHub Packages today, so build it into your local Ivy cache
+once before building this:
 
 ```bash
-cd ../fact-graph && make publish
+git clone https://github.com/IRS-Public/fact-graph.git
+cd fact-graph && make publish        # -> ~/.ivy2/local/gov.irs/factgraph_3/3.1.0-SNAPSHOT
 ```
+
+`~/.ivy2/local` is already first in sbt's default resolver chain, so nothing here needs a resolver
+entry. If Fact Graph is later published to Maven Central — also a default resolver — this build
+picks it up with no change.
+
+## Publishing
+
+Formative publishes to **GitHub Packages** under `gov.irs`, because Maven Central verifies that
+namespace against DNS on `irs.gov`, which is not self-claimable. The trade, stated so it stays a
+choice: GitHub Packages requires authentication even to *read* a public package, so every consumer
+adds a resolver and a token.
+
+```bash
+GITHUB_OWNER=IRS-Public GITHUB_ACTOR=<login> GITHUB_TOKEN=<PAT with write:packages> \
+  sbt publish
+```
+
+Consumers need `read:packages` and the matching resolver — see either example app's `build.sbt` in
+the [taxpert](https://github.com/IRS-Public/taxpert) repo.
 
 ## Build and test
 

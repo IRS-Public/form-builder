@@ -1,5 +1,36 @@
 ThisBuild / scalaVersion := "3.7.2"
 
+// ── Publishing: GitHub Packages, under the gov.irs group ──────────────────────────────────────
+//
+// GitHub Packages was chosen over Maven Central because Central verifies the `gov.irs` namespace
+// against DNS on irs.gov, which is not self-claimable. The cost, stated so it stays a choice:
+// **GitHub Packages requires authentication even to *read* a public package**, so every consumer —
+// including a stranger evaluating this library — must add the resolver below and supply a token.
+// That friction is the trade for keeping the coordinate `gov.irs`.
+//
+// Set GITHUB_OWNER to the org these repos live under. GITHUB_ACTOR / GITHUB_TOKEN are what a
+// GitHub Actions job already provides; locally, a classic PAT with `read:packages` (consume) or
+// `write:packages` (publish) works.
+val githubOwner = sys.env.getOrElse("GITHUB_OWNER", "REPLACE-ME-ORG")
+
+ThisBuild / publishTo := Some(
+  "GitHub Packages" at s"https://maven.pkg.github.com/$githubOwner/formative"
+  )
+ThisBuild / credentials += Credentials(
+  "GitHub Package Registry",
+  "maven.pkg.github.com",
+  sys.env.getOrElse("GITHUB_ACTOR", ""),
+  sys.env.getOrElse("GITHUB_TOKEN", ""),
+  )
+
+// fact-graph is a separate, already-open-sourced repo and is no longer built beside this one, so
+// `gov.irs:factgraph` has to resolve from a registry rather than from ~/.ivy2/local.
+//
+// OPEN: this assumes fact-graph publishes to the same org's GitHub Packages. If it publishes only
+// source, this resolver finds nothing and the alternative is a documented
+// `git clone … && sbt publishLocal` bootstrap in the README.
+ThisBuild / resolvers += "factgraph" at s"https://maven.pkg.github.com/$githubOwner/fact-graph"
+
 scalafmtConfig := file(".scalafmt.conf")
 
 // Formative: everything that turns Flow XML + a Fact Dictionary into a static site, with none of
@@ -26,7 +57,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "formative",
     organization := "gov.irs",
-    version := "0.1.0-SNAPSHOT",
+    version := "0.1.0",
 
     // Core dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,

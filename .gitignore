@@ -1,0 +1,23 @@
+# Local env
+.env
+
+# sbt / Scala
+target/
+project/target/
+.bsp/
+.bloop/
+.metals/
+.scala-build
+metals.sbt
+
+# node
+node_modules/
+
+# Jetbrains / VS Code
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+
+# macOS
+.DS_Store

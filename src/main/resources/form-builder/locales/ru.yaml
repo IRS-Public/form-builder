@@ -1,0 +1,128 @@
+# Chrome for the templates gov.irs::form-builder ships — the wording on a
+# collection's add/remove buttons, a date field's months, the validation messages, the
+# USWDS banner and identifier. Identical in every Form Builder app, so it lives with the
+# templates that ask for it rather than being copied into each app's locales.
+#
+# An app overrides any key here just by declaring it: lookup is app first, then this
+# file, then the generated flow locale.
+components:
+  fg-set:
+    required: (Обязательно)
+  fg-collection:
+    buttons:
+      remove: Удалить {0}
+      add: Добавить {0}
+      add-with-determiner: Добавить {1} {0}
+    remove-item-modal:
+      heading:
+        remove: Удалить {0}?
+      body: Вы уверены, что хотите удалить {0} из расчета EITC?
+      footer:
+        confirm: Подтвердить {0}
+        cancel: Отменить {0}
+    determiners:
+      another: другой
+      more: еще
+  modal:
+    close: Закрыть это окно
+    ok: ОК
+  boolean:
+    'yes': Да
+    'no': Нет
+  date:
+    month: Месяц
+    day: День
+    year: Год
+    select: '- Выбрать -'
+    january: Январь
+    february: Февраль
+    march: Март
+    april: Апрель
+    may: Май
+    june: Июнь
+    july: Июль
+    august: Август
+    september: Сентябрь
+    october: Октябрь
+    november: Ноябрь
+    december: Декабрь
+  select:
+    select: -- Выберите один --
+layout:
+  skip-to-main: Перейти к основному контенту
+  identifier:
+    agency-identifier: Идентификатор агентства
+    disclaimer: Официальный веб-сайт <a class="usa-link" target="_blank" href="https://irs.gov">IRS<span class="usa-sr-only"> (открывается в новой вкладке)</span></a>
+    about:
+      text: О нас
+      link: https://www.irs.gov/about-irs
+    accessibility:
+      text: Доступность
+      link: https://www.irs.gov/accessibility
+    privacy-policy:
+      text: Политика конфиденциальности
+      link: https://www.irs.gov/privacy-disclosure/irs-privacy-policy
+    important-links: Важные ссылки
+  irs:
+    name: IRS
+    domain: IRS.gov
+  banner:
+    how-you-know: Как это узнать
+    official-domain: Официальные веб-сайты используют .gov
+    official-organization: Веб-сайт <strong>.gov</strong> принадлежит официальной правительственной организации США.
+    secure-https: Безопасные веб-сайты .gov используют HTTPS
+    disclaimer: Официальный веб-сайт правительства США
+    lock-1: <strong>Замок</strong>
+    lock-2: или <strong>https://</strong> означает, что вы безопасно подключились к веб-сайту .gov. Делитесь конфиденциальной информацией только на официальных, безопасных веб-сайтах.
+  noscript: JavaScript is required to use the {0}. Please enable JavaScript or switch to a browser that is JavaScript-capable.
+buttons:
+  next: Далее
+  continue: Продолжить
+  back: Назад
+  submit: Отправить
+alerts:
+  warning:
+    complete-required: Пожалуйста, заполните обязательные поля
+step-indicator:
+  completed: завершено
+  not-completed: не завершено
+  step: Шаг
+  of: из
+errors:
+  CombinedHyphensAndParentheses: Введите только цифры и десятичную точку.
+  InvalidCharacters: Введите только цифры и десятичную точку.
+  InvalidDollar: Введите только цифры и десятичную точку.
+  InvalidHyphens: Введите только цифры и десятичную точку.
+  InvalidParentheses: Введите только цифры и десятичную точку.
+  TooManyDecimals: Введите число только с одной десятичной точкой.
+  TooManyFractionalDigits: Введите только два знака после запятой.
+  InvalidDay: Введите действительный день.
+  InvalidDayDueToLeapYear: Недействительный день из-за високосного года.
+  InvalidMonth: Введите действительный месяц.
+  InvalidDate: Введите действительную дату.
+  InvalidLimit: Установлен недействительный лимит.
+  IncompleteWritableDate: Введите полную дату или оставьте поле пустым.
+  BlankEnum: Значение было пустым.
+  InvalidEnum: Значение не найдено.
+  Required: Этот вопрос обязателен для заполнения
+  Default: Извините, что-то пошло не так
+  Max: Введите сумму меньше
+  Min: Введите сумму больше
+audit:
+  fact-select:
+    question: Путь факта
+    blank: -- Выберите путь --
+  collection-id-label: ID коллекции
+  fact:
+    type: 'Тип факта:'
+    value: 'Значение:'
+    remove: Удалить факт
+    definition: XML-определение
+all-screens:
+  section:
+    page-count: 'Страниц: {0}'
+    condition-count: 'Условий: {0}'
+  screen:
+    condition-count: 'Условий: {0}'
+title:
+  format: '{0} - {1} | {2}'

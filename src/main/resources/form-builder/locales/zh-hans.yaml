@@ -1,0 +1,128 @@
+# Chrome for the templates gov.irs::form-builder ships — the wording on a
+# collection's add/remove buttons, a date field's months, the validation messages, the
+# USWDS banner and identifier. Identical in every Form Builder app, so it lives with the
+# templates that ask for it rather than being copied into each app's locales.
+#
+# An app overrides any key here just by declaring it: lookup is app first, then this
+# file, then the generated flow locale.
+components:
+  fg-set:
+    required: (必填)
+  fg-collection:
+    buttons:
+      remove: 删除 {0}
+      add: 添加 {0}
+      add-with-determiner: 添加 {1} {0}
+    remove-item-modal:
+      heading:
+        remove: 删除 {0}？
+      body: 您确定要将此 {0} 从 EITC 计算中删除吗？
+      footer:
+        confirm: 确认 {0}
+        cancel: 取消 {0}
+    determiners:
+      another: 另一个
+      more: 更多
+  modal:
+    close: 关闭此窗口
+    ok: 确定
+  boolean:
+    'yes': 是
+    'no': 否
+  date:
+    month: 月
+    day: 日
+    year: 年
+    select: '- 选择 -'
+    january: 一月
+    february: 二月
+    march: 三月
+    april: 四月
+    may: 五月
+    june: 六月
+    july: 七月
+    august: 八月
+    september: 九月
+    october: 十月
+    november: 十一月
+    december: 十二月
+  select:
+    select: -- 请选择 --
+layout:
+  skip-to-main: 跳转到主要内容
+  identifier:
+    agency-identifier: 机构标识符
+    disclaimer: <a class="usa-link" target="_blank" href="https://irs.gov">IRS<span class="usa-sr-only">（在新标签页中打开）</span></a>的官方网站
+    about:
+      text: 关于
+      link: https://www.irs.gov/about-irs
+    accessibility:
+      text: 无障碍访问
+      link: https://www.irs.gov/accessibility
+    privacy-policy:
+      text: 隐私政策
+      link: https://www.irs.gov/privacy-disclosure/irs-privacy-policy
+    important-links: 重要链接
+  irs:
+    name: IRS
+    domain: IRS.gov
+  banner:
+    how-you-know: 如何确认
+    official-domain: 官方网站使用 .gov
+    official-organization: <strong>.gov</strong> 网站属于美国官方政府组织。
+    secure-https: 安全的 .gov 网站使用 HTTPS
+    disclaimer: 美国政府官方网站
+    lock-1: <strong>锁形图标</strong>
+    lock-2: 或 <strong>https://</strong> 表示您已安全连接到 .gov 网站。请仅在官方的安全网站上分享敏感信息。
+  noscript: JavaScript is required to use the {0}. Please enable JavaScript or switch to a browser that is JavaScript-capable.
+buttons:
+  next: 下一步
+  continue: 继续
+  back: 返回
+  submit: 提交
+alerts:
+  warning:
+    complete-required: 请填写必填项。
+step-indicator:
+  completed: 已完成
+  not-completed: 未完成
+  step: 步骤
+  of: /
+errors:
+  CombinedHyphensAndParentheses: 只能输入数字和小数点。
+  InvalidCharacters: 只能输入数字和小数点。
+  InvalidDollar: 只能输入数字和小数点。
+  InvalidHyphens: 只能输入数字和小数点。
+  InvalidParentheses: 只能输入数字和小数点。
+  TooManyDecimals: 请输入仅包含一个小数点的数字。
+  TooManyFractionalDigits: 小数点后只能输入两位数字。
+  InvalidDay: 请输入有效的日期。
+  InvalidDayDueToLeapYear: 由于闰年，该日期无效。
+  InvalidMonth: 请输入有效的月份。
+  InvalidDate: 请输入有效的日期。
+  InvalidLimit: 设置的限制无效。
+  IncompleteWritableDate: 请输入完整的日期或留空。
+  BlankEnum: 值为空。
+  InvalidEnum: 未找到该值。
+  Required: 继续前需要回答此问题
+  Default: 抱歉，出现了一些问题。
+  Max: 请输入小于以下数值的金额：
+  Min: 请输入大于以下数值的金额：
+audit:
+  fact-select:
+    question: 事实路径
+    blank: -- 选择路径 --
+  collection-id-label: 集合 ID
+  fact:
+    type: 事实类型：
+    value: 值：
+    remove: 删除事实
+    definition: XML 定义
+all-screens:
+  section:
+    page-count: '{0} 页'
+    condition-count: '{0} 个条件'
+  screen:
+    condition-count: '{0} 个条件'
+title:
+  format: '{0} - {1} | {2}'

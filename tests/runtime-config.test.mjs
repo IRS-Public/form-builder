@@ -12,7 +12,7 @@
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 
-const MODULE = '../src/main/resources/formative/website-static/flow-runtime/js/runtime-config.js'
+const MODULE = '../src/main/resources/form-builder/website-static/flow-runtime/js/runtime-config.js'
 
 let nonce = 0
 /** A fresh copy of the module, with `metas` standing in for what fragments/head.html rendered. */
@@ -44,7 +44,7 @@ test('an unconfigured runtime still produces a usable, prefixed key', async () =
 
 test('the server\'s storage prefix reaches the runtime with nothing else configured', async () => {
   // The defect: this is the workspace-less build, where configure() was never called at all.
-  const { storageKey } = await load({ 'formative:storage-prefix': 'eitc' })
+  const { storageKey } = await load({ 'form-builder:storage-prefix': 'eitc' })
   assert.equal(storageKey('factGraph'), 'eitc:factGraph')
 })
 
@@ -52,8 +52,8 @@ test('two apps on one origin do not collide', async () => {
   // Read each key while that app's own document is the installed one: the seed is lazy, so a
   // deferred read would see whichever document was swapped in last. In a browser the question does
   // not arise — each app is its own page — but it makes the order here load-bearing.
-  const eitcKey = (await load({ 'formative:storage-prefix': 'eitc' })).storageKey('factGraph')
-  const tweKey = (await load({ 'formative:storage-prefix': 'twe' })).storageKey('factGraph')
+  const eitcKey = (await load({ 'form-builder:storage-prefix': 'eitc' })).storageKey('factGraph')
+  const tweKey = (await load({ 'form-builder:storage-prefix': 'twe' })).storageKey('factGraph')
 
   assert.equal(eitcKey, 'eitc:factGraph')
   assert.equal(tweKey, 'twe:factGraph')
@@ -61,27 +61,27 @@ test('two apps on one origin do not collide', async () => {
 })
 
 test('the server\'s base path is readable, and is what hardens URL derivation', async () => {
-  const { getRuntimeConfig } = await load({ 'formative:base-path': '/app/tax-withholding-estimator' })
+  const { getRuntimeConfig } = await load({ 'form-builder:base-path': '/app/tax-withholding-estimator' })
   assert.equal(getRuntimeConfig().endpoints.basePath, '/app/tax-withholding-estimator')
 })
 
 test('an empty meta leaves the default alone rather than blanking it', async () => {
   // A root-mounted app renders an empty basePath; that must not clobber anything.
   const { getRuntimeConfig, storageKey } = await load({
-    'formative:base-path': '',
-    'formative:storage-prefix': '',
+    'form-builder:base-path': '',
+    'form-builder:storage-prefix': '',
   })
   assert.equal(getRuntimeConfig().endpoints.basePath, '')
   assert.equal(storageKey('factGraph'), 'taxpert:factGraph')
 })
 
 test('configureRuntime beats the server, whichever is touched first', async () => {
-  const first = await load({ 'formative:storage-prefix': 'from-meta' })
+  const first = await load({ 'form-builder:storage-prefix': 'from-meta' })
   first.configureRuntime({ app: { storagePrefix: 'from-code' } })
   assert.equal(first.storageKey('factGraph'), 'from-code:factGraph')
 
   // And with the seed already triggered by an earlier read, rather than by configureRuntime itself.
-  const second = await load({ 'formative:storage-prefix': 'from-meta' })
+  const second = await load({ 'form-builder:storage-prefix': 'from-meta' })
   assert.equal(second.storageKey('factGraph'), 'from-meta:factGraph')
   second.configureRuntime({ app: { storagePrefix: 'from-code' } })
   assert.equal(second.storageKey('factGraph'), 'from-code:factGraph')

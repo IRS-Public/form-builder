@@ -41,12 +41,12 @@ export default defineConfig([
   },
   {
     // The flow runtime's markup comes from the Thymeleaf node templates in
-    // `resources/formative/templates/nodes/`, rendered server-side, so a client-side HTML string is
+    // `resources/form-builder/templates/nodes/`, rendered server-side, so a client-side HTML string is
     // the exception here rather than the default. The two that exist are data-derived and each
     // carries an inline disable naming why:
     //   • fg-display.js — a list of formatted fact values, with no fixed markup to hold
     //   • modals.js — moving the flow's own already-parsed content inside a generated <a>
-    files: ['src/main/resources/formative/website-static/**/js/*.js'],
+    files: ['src/main/resources/form-builder/website-static/**/js/*.js'],
     rules: {
       'no-restricted-syntax': [
         'error',

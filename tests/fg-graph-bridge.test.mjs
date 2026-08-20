@@ -35,7 +35,7 @@ class FakeBroadcastChannel {
 let createFactGraphBridge
 before(async () => {
   globalThis.BroadcastChannel = FakeBroadcastChannel
-  ;({ createFactGraphBridge } = await import('../src/main/resources/formative/website-static/flow-runtime/js/fg-graph-bridge.js'))
+  ;({ createFactGraphBridge } = await import('../src/main/resources/form-builder/website-static/flow-runtime/js/fg-graph-bridge.js'))
 })
 
 beforeEach(() => registry.clear())

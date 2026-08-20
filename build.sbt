@@ -14,7 +14,7 @@ ThisBuild / scalaVersion := "3.7.2"
 val githubOwner = sys.env.getOrElse("GITHUB_OWNER", "IRS-Public")
 
 ThisBuild / publishTo := Some(
-  "GitHub Packages" at s"https://maven.pkg.github.com/$githubOwner/formative"
+  "GitHub Packages" at s"https://maven.pkg.github.com/$githubOwner/form-builder"
   )
 ThisBuild / credentials += Credentials(
   "GitHub Package Registry",
@@ -35,15 +35,15 @@ ThisBuild / credentials += Credentials(
 
 scalafmtConfig := file(".scalafmt.conf")
 
-// Formative: everything that turns Flow XML + a Fact Dictionary into a static site, with none of
+// Form Builder: everything that turns Flow XML + a Fact Dictionary into a static site, with none of
 // the tax product on top. Published to the local Ivy cache with `sbt publishLocal`, exactly as
 // ../fact-graph is, and consumed by each app's build.sbt.
 //
 // The other library an app may depend on is `taxpert` (../taxpert), and the two answer different
-// questions. Formative decides what the site *is* — including how it looks and how it behaves in a
-// browser: `src/main/resources/formative/website-static/` carries the theme and the flow runtime, and
-// FormativeAssets.scala extracts them from this jar as the generator runs. Taxpert is the workspace
-// laid over a running Formative app to make it understandable — the nav, the inspector, the outcome
+// questions. Form Builder decides what the site *is* — including how it looks and how it behaves in a
+// browser: `src/main/resources/form-builder/website-static/` carries the theme and the flow runtime, and
+// FormBuilderAssets.scala extracts them from this jar as the generator runs. Taxpert is the workspace
+// laid over a running Form Builder app to make it understandable — the nav, the inspector, the outcome
 // tracker. An app can ship without Taxpert; it cannot exist without this.
 //
 // That sentence was false for a while: the theme and the flow runtime lived in taxpert, which made the
@@ -54,10 +54,10 @@ scalafmtConfig := file(".scalafmt.conf")
 // This code was credit-assistant's `src/main/scala/gov/irs/creditassistant/` — the same code the
 // tax-withholding-estimator had a forked copy of, differing only by its package and import lines.
 // The three places the two forks genuinely diverged are extension points here: custom flow node
-// types, custom input types, and app-first template resolution. See FormativeApp.
+// types, custom input types, and app-first template resolution. See FormBuilderApp.
 lazy val root = (project in file("."))
   .settings(
-    name := "formative",
+    name := "form-builder",
     organization := "gov.irs",
     version := "0.1.0",
 

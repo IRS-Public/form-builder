@@ -1,0 +1,128 @@
+# Chrome for the templates gov.irs::form-builder ships — the wording on a
+# collection's add/remove buttons, a date field's months, the validation messages, the
+# USWDS banner and identifier. Identical in every Form Builder app, so it lives with the
+# templates that ask for it rather than being copied into each app's locales.
+#
+# An app overrides any key here just by declaring it: lookup is app first, then this
+# file, then the generated flow locale.
+components:
+  fg-set:
+    required: (Obligatwa)
+  fg-collection:
+    buttons:
+      remove: Retire {0}
+      add: Ajoute {0}
+      add-with-determiner: Ajoute {1} {0}
+    remove-item-modal:
+      heading:
+        remove: Èske w sèten ou vle retire {0} sa a?
+      body: Sa ap efase tout enfòmasyon ou te deja mete sou {0} sa a.
+      footer:
+        confirm: Wi, retire {0} sa a
+        cancel: Non, kenbe {0} sa a
+    determiners:
+      another: yon lòt
+      more: plis
+  modal:
+    close: Fèmen fenèt sa a
+    ok: Ok
+  boolean:
+    'yes': Wi
+    'no': Non
+  date:
+    month: Mwa
+    day: Jou
+    year: Ane
+    select: '- Chwazi -'
+    january: Janvye
+    february: Fevriye
+    march: Mas
+    april: Avril
+    may: Me
+    june: Jen
+    july: Jiyè
+    august: Out
+    september: Septanm
+    october: Oktòb
+    november: Novanm
+    december: Desanm
+  select:
+    select: -- Chwazi youn --
+layout:
+  skip-to-main: Ale nan kontni prensipal la
+  identifier:
+    agency-identifier: Idantifyan ajans
+    disclaimer: Yon sit entènèt ofisyèl <a class="usa-link" target="_blank" href="https://irs.gov">IRS<span class="usa-sr-only"> (ouvri nan yon nouvo onglet)</span></a>
+    about:
+      text: Enfòmasyon
+      link: https://www.irs.gov/about-irs
+    accessibility:
+      text: Aksè
+      link: https://www.irs.gov/accessibility
+    privacy-policy:
+      text: Règleman sou vi prive
+      link: https://www.irs.gov/privacy-disclosure/irs-privacy-policy
+    important-links: Lyen enpòtan
+  irs:
+    name: IRS
+    domain: IRS.gov
+  banner:
+    how-you-know: Men ki jan ou ka konnen
+    official-domain: Sit entènèt ofisyèl yo itilize .gov
+    official-organization: Yon sit entènèt <strong>.gov</strong> fè pati yon òganizasyon ofisyèl gouvènman Etazini.
+    secure-https: Sit entènèt .gov ki an sekirite yo itilize HTTPS
+    disclaimer: Yon sit entènèt ofisyèl gouvènman Etazini
+    lock-1: Yon <strong>kadna</strong>
+    lock-2: oswa <strong>https://</strong> vle di ou konekte an sekirite ak sit entènèt .gov la. Pataje enfòmasyon sansib sèlman sou sit entènèt ofisyèl ak an sekirite.
+  noscript: JavaScript is required to use the {0}. Please enable JavaScript or switch to a browser that is JavaScript-capable.
+buttons:
+  next: Suivan
+  continue: Kontinye
+  back: Tounen
+  submit: Soumèt
+alerts:
+  warning:
+    complete-required: Tanpri ranpli tout jaden obligatwa yo.
+step-indicator:
+  completed: fini
+  not-completed: pa fini
+  step: Etap
+  of: sou
+errors:
+  CombinedHyphensAndParentheses: Antre sèlman nimewo ak yon pwen desimal.
+  InvalidCharacters: Antre sèlman nimewo ak yon pwen desimal.
+  InvalidDollar: Antre sèlman nimewo ak yon pwen desimal.
+  InvalidHyphens: Antre sèlman nimewo ak yon pwen desimal.
+  InvalidParentheses: Antre sèlman nimewo ak yon pwen desimal.
+  TooManyDecimals: Antre yon nimewo ak yon sèl desimal.
+  TooManyFractionalDigits: Antre sèlman de chif apre desimal la.
+  InvalidDay: Antre yon jou valab.
+  InvalidDayDueToLeapYear: Jou a pa valab akoz ane bisektil.
+  InvalidMonth: Antre yon mwa valab.
+  InvalidDate: Antre yon dat valab.
+  InvalidLimit: Limit ki fikse a pa valab.
+  IncompleteWritableDate: Antre yon dat konplè oswa kite li vid.
+  BlankEnum: Valè a te vid.
+  InvalidEnum: Nou pa jwenn valè a.
+  Required: Kesyon sa a obligatwa
+  Default: Eskize nou, gen yon pwoblèm ki pase.
+  Max: Antre yon montan ki mwens pase
+  Min: Antre yon montan ki plis pase
+audit:
+  fact-select:
+    question: Chemen Fè a
+    blank: -- Chwazi yon chemen --
+  collection-id-label: ID Koleksyon
+  fact:
+    type: 'Kalite Fè:'
+    value: 'Valè:'
+    remove: Retire fè a
+    definition: Definisyon XML
+all-screens:
+  section:
+    page-count: '{0} paj'
+    condition-count: '{0} kondisyon'
+  screen:
+    condition-count: '{0} kondisyon'
+title:
+  format: '{0} - {1} | {2}'

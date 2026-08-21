@@ -14,16 +14,32 @@ dependency is enough to get a styled, working questionnaire, with no npm step in
 An application built on this library is called a **Form Builder app**. Its whole Scala surface is one
 `FormBuilderApp` value and one call to `FormBuilder.run`.
 
+
+### Contributing
+Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
+
+This codebase is dedicated to the public domain under the [Creative Commons Zero v1.0 Universal](LICENSE.md) license (CC0 1.0).
+
+## Legal Disclaimer: Public Repository Access
+
+> This repository contains draft and under-development source code. It is made available to the public solely for transparency, collaboration, and research purposes.
+>
+> **No Endorsement or Warranty**
+>
+> IRS does not endorse, maintain, or guarantee the accuracy, completeness, or functionality of the code in this repository. The IRS assumes no responsibility or liability for any use of the code by external parties, including individuals, developers, or organizations. This includes—but is not limited to—any tax consequences, computation errors, data loss, or other outcomes resulting from the use or modification of this code.
+>
+> Use of the code in this repository is at your own risk. This repository is not intended for production use or public consumption as a finalized product.
+
+
 ## Where it fits
 
 | Component | What it is |
 |---|---|
-| [`../fact-graph`](../fact-graph) | `gov.irs::factgraph`, the evaluation engine. Cross-compiled: a JVM jar this library builds against, and a Scala.js bundle the browser runs. |
+| [`fact-graph`](https://github.com/IRS-Public/fact-graph) | `gov.irs::factgraph`, the evaluation engine. Cross-compiled: a JVM jar this library builds against, and a Scala.js bundle the browser runs. |
 | **`form-builder`** (here) | The scaffold. Parser, generators, Thymeleaf engine, node templates, chrome locales, RELAX NG schemas, theme and flow runtime. |
-| [`../taxpert`](../taxpert) | The workspace UI (`taxpert` on npm): global nav, audit panel, tool panels. Optional. An app can ship without it. |
-| [`../form-builder-template`](../form-builder-template) | A cookiecutter that generates a new Form Builder app. |
-| [`../credit-assistant`](../credit-assistant), [`../tax-withholding-estimator`](../tax-withholding-estimator) | The two Form Builder apps that exist. Each is flow XML, facts, locales, brand CSS, and a small `Main.scala`. |
-| [`../fact-explorer`](../fact-explorer) | A React/Vite SPA that visualizes any Form Builder app's flow and facts as a graph, reading the JSON this library emits under `--formBuilderGraph`. |
+| [`taxpert`](https://github.com/IRS-Public/taxpert) | The workspace UI (`taxpert` on npm, in that repo's `packages/ui`): global nav, audit panel, tool panels. Optional. An app can ship without it. Its `packages/fact-explorer` is a React/Vite SPA that visualizes any Form Builder app's flow and facts as a graph, reading the JSON this library emits under `--formBuilderGraph`. |
+| [`form-builder-template`](https://github.com/IRS-Public/form-builder-template) | A cookiecutter that generates a new Form Builder app. |
+| [`form-builder-example`](https://github.com/IRS-Public/form-builder-example) | The two Form Builder applications that exist — Credit Assistant (EITC) and the Tax Withholding Estimator. Each is flow XML, facts, locales, brand CSS, and a small `Main.scala`. |
 
 The dependency runs one way. This library names no path inside `vendor/taxpert/`, and nothing here
 imports from the workspace package. Grep the template tree for `vendor/taxpert` and every hit is
@@ -40,9 +56,7 @@ prose in a comment.
 
 ### Getting `gov.irs::factgraph`
 
-Fact Graph is a separate library, consumed independently of any GitHub-native service. It is
-published to neither Maven Central nor GitHub Packages today, so build it into your local Ivy cache
-once before building this:
+Fact Graph is a separate library, consumed independently of any GitHub-native service.
 
 ```bash
 git clone https://github.com/IRS-Public/fact-graph.git
@@ -72,7 +86,7 @@ the [taxpert](https://github.com/IRS-Public/taxpert) repo.
 
 ```bash
 sbt test              # ScalaTest suite
-sbt publishLocal      # → ~/.ivy2/local/gov.irs/form-builder_3/0.1.0-SNAPSHOT/
+sbt publishLocal      # → ~/.ivy2/local/gov.irs/form-builder_3/0.1.0/
 sbt scalafmtAll       # format the Scala
 sbt scalafmtCheckAll  # check it, as CI does
 
@@ -134,14 +148,14 @@ belongs in that app's `FormBuilderApp` instead.
 To start a new app, run the cookiecutter rather than copying an existing one:
 
 ```bash
-cookiecutter ../form-builder-template
+cookiecutter gh:IRS-Public/form-builder-template
 ```
 
 ## Layout
 
 ```
 form-builder/
-├── build.sbt                       gov.irs::form-builder, version 0.1.0-SNAPSHOT
+├── build.sbt                       gov.irs::form-builder, version 0.1.0
 ├── package.json                    lint + test tooling for the shipped browser assets
 ├── eslint.config.js
 ├── src/main/scala/gov/irs/formbuilder/

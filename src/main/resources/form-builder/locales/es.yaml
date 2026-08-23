@@ -106,6 +106,7 @@ errors:
   InvalidEnum: Valor no encontrado.
   Required: Se necesita la respuesta a la pregunta para continuar
   Default: Lo sentimos, algo salió mal.
+  Match: Revise el formato e inténtelo de nuevo.
   Max: Ingrese una cantidad menor a
   Min: Ingrese una cantidad mayor a
 audit:

@@ -106,6 +106,7 @@ errors:
   InvalidEnum: Không tìm thấy giá trị.
   Required: Bắt buộc phải trả lời câu hỏi này để tiếp tục.
   Default: Rất tiếc, đã xảy ra lỗi.
+  Match: Kiểm tra lại định dạng và thử lại.
   Max: Nhập số tiền nhỏ hơn
   Min: Nhập số tiền lớn hơn
 audit:

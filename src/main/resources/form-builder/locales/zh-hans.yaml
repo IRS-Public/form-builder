@@ -106,6 +106,7 @@ errors:
   InvalidEnum: 未找到该值。
   Required: 继续前需要回答此问题
   Default: 抱歉，出现了一些问题。
+  Match: 请检查格式后重试。
   Max: 请输入小于以下数值的金额：
   Min: 请输入大于以下数值的金额：
 audit:

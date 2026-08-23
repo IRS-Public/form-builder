@@ -106,6 +106,7 @@ errors:
   InvalidEnum: Nou pa jwenn valè a.
   Required: Kesyon sa a obligatwa
   Default: Eskize nou, gen yon pwoblèm ki pase.
+  Match: Tcheke fòma a epi eseye ankò.
   Max: Antre yon montan ki mwens pase
   Min: Antre yon montan ki plis pase
 audit:

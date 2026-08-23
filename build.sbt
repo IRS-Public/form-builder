@@ -1,37 +1,14 @@
 ThisBuild / scalaVersion := "3.7.2"
 
-// ── Publishing: GitHub Packages, under the gov.irs group ──────────────────────────────────────
-//
-// GitHub Packages was chosen over Maven Central because Central verifies the `gov.irs` namespace
-// against DNS on irs.gov, which is not self-claimable. The cost, stated so it stays a choice:
-// **GitHub Packages requires authentication even to *read* a public package**, so every consumer —
-// including a stranger evaluating this library — must add the resolver below and supply a token.
-// That friction is the trade for keeping the coordinate `gov.irs`.
-//
-// Set GITHUB_OWNER to the org these repos live under. GITHUB_ACTOR / GITHUB_TOKEN are what a
-// GitHub Actions job already provides; locally, a classic PAT with `read:packages` (consume) or
-// `write:packages` (publish) works.
-val githubOwner = sys.env.getOrElse("GITHUB_OWNER", "IRS-Public")
-
-ThisBuild / publishTo := Some(
-  "GitHub Packages" at s"https://maven.pkg.github.com/$githubOwner/form-builder"
-  )
-ThisBuild / credentials += Credentials(
-  "GitHub Package Registry",
-  "maven.pkg.github.com",
-  sys.env.getOrElse("GITHUB_ACTOR", ""),
-  sys.env.getOrElse("GITHUB_TOKEN", ""),
-  )
-
-// gov.irs:factgraph is deliberately NOT resolved through GitHub Packages — fact-graph is consumed
-// as a plain library, independent of any GitHub-native service. It is on neither Maven Central nor
-// GitHub Packages today, so the one mechanism that works is a local publish from a checkout:
+// Both this library and the gov.irs:factgraph it builds against are consumed from the local Ivy
+// cache, published there from a checkout:
 //
 //   git clone <fact-graph> && cd fact-graph && sbt publishLocal
 //
-// which lands 3.1.0-SNAPSHOT in ~/.ivy2/local, already first in sbt's default resolver chain.
-// No resolver line belongs here: if fact-graph is later published to Maven Central, that is a
-// default resolver too, and this build picks it up with no change. See README.md.
+// which lands 3.1.0-SNAPSHOT in ~/.ivy2/local, already first in sbt's default resolver chain. That
+// is why this build declares no resolvers at all: the one place these artifacts come from is
+// already searched, and if either is later published to Maven Central — also a default resolver —
+// this build picks it up with no change. See README.md.
 
 scalafmtConfig := file(".scalafmt.conf")
 
@@ -59,7 +36,14 @@ lazy val root = (project in file("."))
   .settings(
     name := "form-builder",
     organization := "gov.irs",
-    version := "0.1.0",
+
+    // A snapshot, matching gov.irs:factgraph, because `publishLocal` is the only way this library
+    // reaches an application. A fixed release version is a promise that the artifact never changes,
+    // and both Ivy and coursier hold consumers to it: edit the scaffold, `publishLocal` again, and
+    // an app can keep resolving the copy already in its cache. `-SNAPSHOT` declares the artifact
+    // changing, so the edit-and-republish loop this library is developed in actually reaches the
+    // apps built on it. Cutting a real release means dropping the suffix here and in every consumer.
+    version := "0.1.0-SNAPSHOT",
 
     // Core dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,

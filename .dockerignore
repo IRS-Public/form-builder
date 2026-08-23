@@ -1,0 +1,18 @@
+# This repository is consumed as a *named build context* by the applications built on it:
+#
+#   docker build --build-context form-builder=../form-builder …
+#
+# and a named context has no .dockerignore of its own to fall back on — the application's
+# .dockerignore applies only to the application's own context. Without this file, a developer's
+# `target/` (a full compiled tree, plus whatever JDK compiled it) and `node_modules/` are
+# transferred into every image build that names this directory.
+#
+# Stage 1 of those builds runs `sbt publishLocal` here, so everything it needs is the source,
+# build.sbt and project/*.sbt — all of which are kept.
+**/target
+**/node_modules
+.git
+.bsp
+.bloop
+.metals
+.scala-build

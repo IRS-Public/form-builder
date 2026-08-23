@@ -187,8 +187,11 @@ class FgSet extends HTMLElement {
       if (res.errorType) {
         const errorTextKey = `errors.${res.errorName}`
         const errorElement = document.getElementById(errorTextKey) || document.getElementById(this.DEFAULT_ERROR_ELEMENT_ID)
-        const errorText = errorElement.innerText + ' ' + (res.expectedValue || '')
-        this.setValidationError(errorText)
+        // `expectedValue` is the limit the value broke against, appended so "Enter an amount more
+        // than" reads as a sentence. A Match limit's is a regular expression, which completes no
+        // sentence a user should be shown, so its message stands alone.
+        const suffix = res.errorName === 'Match' ? '' : ' ' + (res.expectedValue || '')
+        this.setValidationError(errorElement.innerText + suffix)
       } else {
         this.clearValidationError()
       }

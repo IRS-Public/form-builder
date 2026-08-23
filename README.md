@@ -59,9 +59,8 @@ prose in a comment.
 
 ### Getting `gov.irs::factgraph`
 
-Fact Graph is a separate library and is consumed independently of any GitHub-native service. It is
-on neither Maven Central nor GitHub Packages today, so the way to get it is a local publish from a
-checkout:
+Fact Graph is a separate library, and it is on no public artifact registry today, so the way to get
+it is a local publish from a checkout:
 
 ```bash
 git clone https://github.com/IRS-Public/fact-graph.git
@@ -72,36 +71,40 @@ cd fact-graph && sbt publishLocal    # -> ~/.ivy2/local/gov.irs/factgraph_3/3.1.
 resolver entry for it. If Fact Graph is later published to Maven Central, which is also a default
 resolver, this build picks it up with no change.
 
-### Publishing, and the authentication it requires
+### Consuming this library
 
-Form Builder publishes to **GitHub Packages** under the `gov.irs` group. Maven Central verifies that
-namespace against DNS on `irs.gov`, which is not self-claimable, so Central was not an option. The
-cost of the alternative is that GitHub Packages requires authentication even to *read* a public
-package. Every consumer, including a stranger evaluating this library, has to add the resolver and
-supply a token.
-
-Three environment variables drive it, all read in `build.sbt`:
-
-| Variable | Meaning | Default |
-|---|---|---|
-| `GITHUB_OWNER` | The org the packages live under. | `IRS-Public` |
-| `GITHUB_ACTOR` | Your GitHub login. GitHub Actions supplies this already. | empty |
-| `GITHUB_TOKEN` | A classic PAT. `read:packages` to consume, `write:packages` to publish. | empty |
+Form Builder is published to the local Ivy cache with `sbt publishLocal` from a checkout, and that is
+how every consumer in this ecosystem gets it. No credentials, and no resolver entry in the consuming
+build:
 
 ```bash
-GITHUB_OWNER=IRS-Public GITHUB_ACTOR=<login> GITHUB_TOKEN=<PAT with write:packages> \
-  sbt publish
+git clone https://github.com/IRS-Public/form-builder.git
+cd form-builder && sbt publishLocal    # -> ~/.ivy2/local/gov.irs/form-builder_3/0.1.0-SNAPSHOT/
 ```
 
-If you would rather not deal with tokens while evaluating the library, `sbt publishLocal` puts it in
-`~/.ivy2/local` alongside Fact Graph, and a local application build will resolve it from there.
+There is no remote to publish to, and the reason is the coordinate. Maven Central verifies the
+`gov.irs` namespace against DNS on `irs.gov`, which is not self-claimable, so `gov.irs` and a public
+registry are not currently compatible. The cost, stated so it stays a choice: a consumer clones this
+repository and publishes locally rather than adding one dependency line.
+
+The version is `0.1.0-SNAPSHOT`, matching `gov.irs::factgraph`, and the suffix is doing work rather
+than marking immaturity. A fixed release version is a promise that the artifact never changes, and
+both Ivy and coursier hold consumers to it — edit the scaffold, `publishLocal` again, and an
+application can go on resolving the copy already in its cache. A snapshot is declared changing, so
+the edit-and-republish loop this library is developed in reaches the applications built on it. An
+application therefore declares:
+
+```scala
+libraryDependencies += "gov.irs" %% "form-builder" % "0.1.0-SNAPSHOT"
+```
+
+Cutting a real release means dropping the suffix here and in every consumer at once.
 
 ## Build and test
 
 ```bash
 sbt test              # ScalaTest suite
-sbt publishLocal      # -> ~/.ivy2/local/gov.irs/form-builder_3/0.1.0/
-sbt publish           # -> GitHub Packages, with the credentials above
+sbt publishLocal      # -> ~/.ivy2/local/gov.irs/form-builder_3/0.1.0-SNAPSHOT/
 sbt scalafmtAll       # format the Scala
 sbt scalafmtCheckAll  # check formatting, as CI does
 
@@ -201,7 +204,7 @@ cookiecutter gh:IRS-Public/form-builder-template
 
 | Path | What is in it |
 |---|---|
-| `build.sbt` | `gov.irs::form-builder` 0.1.0, the dependency list, and the publishing setup |
+| `build.sbt` | `gov.irs::form-builder` 0.1.0-SNAPSHOT and the dependency list |
 | `src/main/scala/gov/irs/formbuilder/FormBuilder.scala` | `run`, `regenerate`, `parseFlow`, `resolvedFlowConfig`. The whole entry point |
 | `…/FormBuilderApp.scala` | The configuration case class above |
 | `…/FormBuilderAssets.scala` | Extracts `website-static` out of this jar into a built site |

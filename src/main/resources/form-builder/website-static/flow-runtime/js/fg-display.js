@@ -1,10 +1,12 @@
+// The read-only and side-effecting display elements: `<fg-show>`, `<fg-reset>` and `<fg-apply>`.
+//
+// See docs/internals/flow-runtime.md.
+
 import { storageKey } from './runtime-config.js'
 import { factGraph, saveFactGraph } from './fg-fact-graph.js'
 import { appBasePath } from './runtime-paths.js'
 
-/*
- * <fg-show> - Display the current value and/or status of a fact.
- */
+/** `<fg-show path="…">`: the current value of a fact, formatted, re-rendered on every fg-update. */
 class FgShow extends HTMLElement {
   constructor () {
     super()
@@ -22,7 +24,7 @@ class FgShow extends HTMLElement {
   }
 
   render () {
-    // This is a temporary enhancement to allow showing all values of a fact without knowing the collection id
+    // The mangled field names are the Scala.js encoding of MaybeVector.Multiple.
     const results = (this.path.indexOf('*') !== -1)
       ? factGraph.getVect(this.path).Lgov_irs_factgraph_monads_MaybeVector$Multiple__f_vect.sci_Vector__f_prefix1.u
       : [factGraph.get(this.path)]
@@ -52,9 +54,7 @@ class FgShow extends HTMLElement {
 }
 customElements.define('fg-show', FgShow)
 
-/*
- * <fg-reset> - button to reset the Fact Graph.
- */
+/** `<fg-reset>`: a button that drops the stored Fact Graph. */
 class FgReset extends HTMLElement {
   connectedCallback () {
     this.addEventListener('click', this)
@@ -62,8 +62,7 @@ class FgReset extends HTMLElement {
 
   handleEvent () {
     sessionStorage.removeItem(storageKey('factGraph'))
-    // Reloading in place keeps the current mode context (Browse All, Scenario, Authoring),
-    // including its query string. Only the linear flow needs to restart at the first page.
+    // In place keeps the current mode and query string. Only the linear flow restarts at page one.
     const path = window.location.pathname
     if (path.includes('/all-screens/') || path.includes('/author/')) window.location.reload()
     else window.location = `${appBasePath()}/`
@@ -71,12 +70,9 @@ class FgReset extends HTMLElement {
 }
 customElements.define('fg-reset', FgReset)
 
-/*
- * <fg-apply> - Write a literal into the Fact Graph as soon as the page renders it.
- *
- * The flow's way of asserting something the taxpayer was never asked: a page reached only under a
- * condition can state the fact that condition implies. It is the browser half of the scaffold's
- * `<fg-apply>` flow node.
+/**
+ * `<fg-apply path="…" value="…">`: write a literal into the graph as the page renders it, so a page
+ * reached only under a condition can assert the fact that condition implies.
  */
 class FgApply extends HTMLElement {
   connectedCallback () {

@@ -1,3 +1,8 @@
+// `<fg-alert>`: a USWDS alert whose visibility is driven by a fact. It reads a `condition`/`operator`
+// pair directly rather than going through Condition, which is how it reaches the non-Boolean
+// operators. `knockout="true"` blocks navigation; Page and FlowManifest collect those paths.
+// Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.formbuilder.parser.{ Condition, ConditionOperator }

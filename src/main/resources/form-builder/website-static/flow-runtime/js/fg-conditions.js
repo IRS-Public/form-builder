@@ -1,9 +1,14 @@
+// Conditional visibility: evaluating a `condition`/`operator` pair against the Fact Graph, and
+// applying the result to every element carrying one.
+//
+// Hiding an element deletes the facts inside it, which is what keeps a hidden answer from counting
+// as complete. See docs/internals/flow-runtime.md.
+
 import { factGraph } from './fg-fact-graph.js'
 
 export function checkCondition (condition, operator) {
   let value
-  // Defaults to true because having to answer an unnecessary question is likely preferable to not
-  // being presented a necessary question.
+  // Default to showing, so an error never skips a necessary question.
   try {
     value = factGraph.get(condition)
   } catch (e) {
@@ -12,7 +17,7 @@ export function checkCondition (condition, operator) {
   }
 
   switch (operator) {
-    // We need to explicitly check for true/false to account for incompletes
+    // Explicit rather than truthiness: an incomplete fact has no value to compare.
     case 'isTrue': {
       return value.hasValue && (value.get === true)
     } case 'isFalse': {
@@ -35,15 +40,10 @@ export function checkCondition (condition, operator) {
 }
 
 /**
- * Show or hide the elements in the document based on the Fact Graph config.
- *
- * This method will delete facts that are hidden, making them incomplete.
+ * Show or hide every `[condition][operator]` element, deleting the facts inside anything hidden.
+ * One pass in DOM order, so an `<fg-set>` must not depend on a fact set later in the document.
  */
 export function showOrHideAllElements () {
-  // At present, this naive implementation relies on <fg-set>s not having conditions on facts that
-  // are set after them in the DOM order. This is a deliberate choice to limit complexity at this
-  // stage, but it is not set in stone. If you see bugs related to showing/hiding, this is the place
-  // to start looking.
   const hideableElements = document.querySelectorAll('[condition][operator]')
   for (const element of hideableElements) {
     const condition = element.getAttribute('condition')

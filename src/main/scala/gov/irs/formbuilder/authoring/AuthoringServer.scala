@@ -14,21 +14,18 @@ import scala.util.{ Failure, Success, Try }
 import scala.util.matching.Regex
 import scala.xml.{ Elem, Node, NodeBuffer, Null, Text, TopScope, UnprefixedAttribute }
 
-/** Embedded HTTP backend for Author Mode It serves the structured-form editor (which is hosted by `smol` on 3003) a
-  * JSON model of the current on-disk Flow/FactDictionary, validates proposed value/text edits against the exact same
-  * validators the build uses, saves them with a byte-for-byte preserve-and-patch writer, regenerates the site
-  * in-process, and re-stubs the non-English locales. Saved changes are committed from the CLI, not through this API.
+/** The Author Mode HTTP backend. Serves a JSON model of the on-disk Flow and Fact Dictionary, validates proposed edits
+  * with the same validators the build uses, writes them back with a preserve-and-patch writer, and regenerates the site
+  * in-process.
   *
-  * Everything here is deliberately confined to the MVP surface: pure value/text patches (constant
-  * `<Dollar>`/`<Rational>` values, a fact `<Description>`, and on-screen `<question>`/`<hint>`/`<fg-alert>` heading
-  * text). No XML is ever re-serialized from a parsed model.
+  * Two invariants hold throughout. Every read is `os.read` against the source tree rather than the classpath, because
+  * the process rewrites those files and sbt is recompiling underneath it. And no XML is ever re-serialized from a
+  * parsed model; writers locate the smallest enclosing block and splice, so the diff of a save is the edit.
+  *
+  * See docs/internals/author-mode.md for the endpoint table, the edit kinds, and the validation stack.
   */
 object AuthoringServer {
 
-  // ─── On-disk resource locations (read directly, not via the classpath, so the ──────────────
-  // model + validation always reflect the very latest saved state) ────────────────────────────
-  // The application being authored. Set once by `start`, because this server is a per-process
-  // singleton that serves exactly one app for its whole life — the same reason it can own a port.
   private var authoredApp: FormBuilderApp = null
   private def app: FormBuilderApp =
     if (authoredApp != null) authoredApp
@@ -57,14 +54,10 @@ object AuthoringServer {
       constantType: Option[String],
   )
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────
-  //  Server lifecycle
-  // ──────────────────────────────────────────────────────────────────────────────────────────
+  // ─── Server lifecycle ───
 
-  /** Start the authoring server (non-blocking). `host` is normally "localhost" (loopback-only, since this API patches
-    * source XML on disk); the docker-compose dev overlay passes "0.0.0.0" for the containerized watcher, since a
-    * container's loopback interface isn't reachable through Docker's port-publishing NAT — see the call site in
-    * `main.scala` for the full rationale.
+  /** Non-blocking. `host` is loopback by default because this API patches source XML on disk; the docker-compose dev
+    * overlay passes "0.0.0.0" so the containerized watcher can reach it.
     */
   def start(host: String, port: Int, flags: Map[String, Boolean], app: FormBuilderApp): HttpServer = {
     authoredApp = app
@@ -73,12 +66,10 @@ object AuthoringServer {
     server.createContext("/author/health", jsonHandler(_ => (200, Json.obj("status" -> "ok".asJson).noSpaces)))
     server.createContext("/author/model", jsonHandler(_ => (200, buildModelJson().noSpaces)))
     server.createContext("/author/lint", jsonHandler(_ => (200, buildLintJson().noSpaces)))
-    // T18 — load a fact's <Derived> computation tree (+ the editor palette) for the calculation editor.
     server.createContext(
       "/author/derived",
       jsonHandler(ex => (200, buildDerivedJson(queryParam(ex, "path").getOrElse("")).noSpaces)),
     )
-    // T19 — everything that references a fact, for the delete-impact preview.
     server.createContext(
       "/author/fact-usage",
       jsonHandler(ex => (200, buildFactUsageJson(queryParam(ex, "path").getOrElse("")).noSpaces)),
@@ -91,7 +82,6 @@ object AuthoringServer {
       "/author/save",
       jsonHandler(ex => (200, handleEdit(readBody(ex), save = true, flags).noSpaces)),
     )
-    // T17 — create a net-new fact / screen.
     server.createContext(
       "/author/create-fact",
       jsonHandler(ex => (200, handleCreateFact(readBody(ex), flags).noSpaces)),
@@ -100,7 +90,6 @@ object AuthoringServer {
       "/author/create-screen",
       jsonHandler(ex => (200, handleCreateScreen(readBody(ex), flags).noSpaces)),
     )
-    // T19 — delete a fact (hard-blocked if anything references it).
     server.createContext(
       "/author/delete-fact",
       jsonHandler(ex => (200, handleDeleteFact(readBody(ex), flags).noSpaces)),
@@ -119,9 +108,7 @@ object AuthoringServer {
     server
   }
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────
-  //  HTTP plumbing (CORS, JSON, error envelope)
-  // ──────────────────────────────────────────────────────────────────────────────────────────
+  // ─── HTTP plumbing ───
 
   private def jsonHandler(fn: HttpExchange => (Int, String)): HttpHandler =
     (ex: HttpExchange) => {
@@ -139,17 +126,10 @@ object AuthoringServer {
       }
     }
 
-  // Fact Explorer's dev server. The one origin here that is not derived: it is Fact Explorer's own
-  // port, a property of that tool rather than of any application, and Fact Explorer holds every app
-  // at once.
+  // The one origin not derived from the app: it belongs to Fact Explorer, which holds every app at once.
   private val FactExplorerOrigin = "http://localhost:5180"
 
-  /** The app's own dev origin, from the port it is actually being served on.
-    *
-    * Derived rather than written down. This used to be the literal `http://localhost:3003` — one application's port,
-    * hardcoded in the library, which meant the second app's Author Mode had no working CORS at all. The port is
-    * resolved the same way [[FormBuilder.run]] resolves it: `-Dsmol.port` if set, else the app's `defaultPort`.
-    */
+  /** Derived from the port the app is actually served on, the same way [[FormBuilder.run]] resolves it. */
   private def appOrigin: String = {
     val port = sys.props
       .get("smol.port")
@@ -158,11 +138,9 @@ object AuthoringServer {
     s"http://localhost:$port"
   }
 
-  // The editor is loaded both directly from the app's own dev server and, via fact-explorer's Vite
-  // dev proxy for the scenario overlay (see fact-explorer/vite.config.js), from :5180 — the
-  // browser's location.origin is :5180 in that case even though the HTML came from the app, so a
-  // single hardcoded Allow-Origin can't cover both. Reflect the request's Origin if it is one of
-  // these known local dev origins; otherwise fall back to the app's own (a same-origin no-op).
+  // The editor loads both from the app's own dev server and, through Fact Explorer's Vite proxy, from
+  // :5180, where location.origin is :5180 even though the HTML came from the app. Reflect whichever
+  // of the two the request carries.
   private def allowedOrigins: Set[String] = Set(appOrigin, FactExplorerOrigin)
 
   private def addCors(ex: HttpExchange): Unit = {
@@ -189,7 +167,6 @@ object AuthoringServer {
   private def readBody(ex: HttpExchange): String =
     new String(ex.getRequestBody.readAllBytes(), StandardCharsets.UTF_8)
 
-  /** A single query-string parameter (URL-decoded), e.g. `?path=/foo` → Some("/foo"). */
   private def queryParam(ex: HttpExchange, name: String): Option[String] =
     Option(ex.getRequestURI.getQuery).toList
       .flatMap(_.split("&"))
@@ -211,11 +188,9 @@ object AuthoringServer {
   private def rootMsg(e: Throwable): String =
     Option(e.getMessage).filter(_.nonEmpty).getOrElse(e.getClass.getSimpleName)
 
-  /** The author-facing half of a fact-graph config error. `FactDictionary` validation appends the offending node's full
-    * `CompNodeConfig(…)` toString after the human sentence — e.g. "&lt;Subtract&gt; must have at least one
-    * &lt;Subtrahends&gt;: CompNodeConfig(Subtract,List(CompNodeConfig(Minuend,…". That dump is meaningless to an author
-    * and, being one giant unbroken token, floods the inline error box during the normal mid-edit states (removing a
-    * `<Subtrahends>` to swap it, an empty operator, …). Keep only the sentence before the dump.
+  /** The author-facing half of a fact-graph config error. `FactDictionary` appends the offending `CompNodeConfig(…)`
+    * toString, one unbroken token that floods the inline error box during ordinary mid-edit states. Keep only the
+    * sentence before it. Covered by `FactGraphMessageSpec`.
     */
   private[authoring] def factGraphMessage(e: Throwable): String = {
     val msg = rootMsg(e)
@@ -225,14 +200,9 @@ object AuthoringServer {
     }
   }
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────
-  //  GET /author/model
-  // ──────────────────────────────────────────────────────────────────────────────────────────
+  // ─── GET /author/model ───
 
   private def buildModelJson(): Json = {
-    // The `path -> typeNode` map (e.g. "/foo" -> "DollarNode") lets the flow form show only the input types /
-    // operators compatible with a bound or gating fact. Built once from the on-disk dictionary and threaded into both
-    // model builders so nothing re-parses the whole tree per screen.
     val factTypes: Map[String, String] = Try {
       val dict = buildFactDictionary(Map.empty)
       dict
@@ -250,7 +220,6 @@ object AuthoringServer {
     val booleanPaths = factTypes.collect { case (p, "BooleanNode") => p }.toList.sorted
     val numericPaths = factTypes.collect { case (p, t) if NumericTypeNodes(t) => p }.toList.sorted
 
-    // Fact files an author can add a new fact to, and flow modules to add a new screen to (T17).
     val factFileNames = sortedFactFiles().map(_.last).toList
     val flowModules = orderedModuleFiles().map(_._1)
 
@@ -265,14 +234,10 @@ object AuthoringServer {
     )
   }
 
-  /** Fact-graph type nodes that count as numeric — the operand types the numeric condition operators
-    * (`isZero`/`isGreaterThanZero`) accept.
-    */
+  /** The operand types the numeric condition operators accept. */
   private val NumericTypeNodes = Set("DollarNode", "IntNode", "RationalNode")
 
-  /** The input `type` string valid for a bound fact of the given type node (mirrors the FgSet.fromXml type check).
-    * EnumNode accepts either `enum` or `select`; every other node maps to exactly one input type.
-    */
+  /** Mirrors the FgSet.fromXml type check. EnumNode accepts two; every other node maps to one. */
   private def inputTypesForNode(typeNode: String): List[String] = typeNode match {
     case "StringNode"    => List("text")
     case "IntNode"       => List("int")
@@ -284,9 +249,7 @@ object AuthoringServer {
     case _               => Nil
   }
 
-  /** Parse every fact XML file in `facts/` (alphabetical, last-wins on duplicate paths, matching the runtime merge)
-    * into the editable fact model + the set of writable paths.
-    */
+  /** Alphabetical, last-wins on a duplicate path, matching the runtime merge. */
   private def buildFactsModel(factTypes: Map[String, String]): (List[Json], mutable.LinkedHashSet[String]) = {
     val entries = mutable.LinkedHashMap[String, Json]()
     val writable = mutable.LinkedHashSet[String]()
@@ -322,9 +285,6 @@ object AuthoringServer {
               "kind" -> kind.asJson,
               "constantValue" -> constantValue.map(Json.fromString).getOrElse(Json.Null),
               "constantType" -> constantType.map(Json.fromString).getOrElse(Json.Null),
-              // Writable-only config (T15). `placeholder` is the fact's default scalar (or null); `limits` are its
-              // Min/Max validation bounds. Both are surfaced only for writable facts, since a Derived value can't carry
-              // a placeholder/limit an author would set.
               "type" -> factTypes.getOrElse(path, "").asJson,
               "placeholder" -> scalarChildJson(factNode \ "Placeholder"),
               "limits" -> Json.fromValues(limitsJson(factNode)),
@@ -337,18 +297,14 @@ object AuthoringServer {
     (entries.values.toList, writable)
   }
 
-  /** The single scalar child of a `<Placeholder>`/`<Limit>` wrapper as `{ valueType, value }` (e.g.
-    * `<Placeholder><Dollar>0</Dollar></Placeholder>` → `{valueType:"Dollar", value:"0"}`), or Json.Null if absent.
-    */
+  /** `<Placeholder><Dollar>0</Dollar></Placeholder>` becomes `{valueType:"Dollar", value:"0"}`. */
   private def scalarChildJson(wrapper: xml.NodeSeq): Json =
     wrapper.headOption.flatMap(_.child.collect { case e: Elem => e }.headOption) match {
       case Some(e) => Json.obj("valueType" -> e.label.asJson, "value" -> e.text.trim.asJson)
       case None    => Json.Null
     }
 
-  /** Every `<Limit type="Min|Max">` on a fact as `{ limitType, valueType, value }`. Limits live *inside* the
-    * `<Writable>` element (interleaved with the type element), so we descend into it rather than reading Fact children.
-    */
+  /** Limits live inside `<Writable>`, so descend into it rather than reading Fact children. */
   private def limitsJson(factNode: xml.Node): List[Json] =
     (factNode \ "Writable" \ "Limit").toList.flatMap { lim =>
       lim.child.collect { case e: Elem => e }.headOption.map { e =>
@@ -360,11 +316,8 @@ object AuthoringServer {
       }
     }
 
-  /** One entry per `<page>`, in `index.xml` module order. Every `<fg-set>` on the page is its own editable block (keyed
-    * by its fact `path`, which is unique even when a page carries several — one per collection item or income source),
-    * each with its own `question`/`hint`. `alerts` are likewise every `<fg-alert>` on the page, keyed by `alert-key`,
-    * with their editable text being the `<heading>`. (Earlier this only surfaced the first `<question>`/`<hint>` found
-    * anywhere on the page, silently dropping every screen's other questions.)
+  /** One entry per `<page>`, in `index.xml` module order. Every `<fg-set>` is its own editable block keyed by its fact
+    * path, since a page can carry several, and every `<fg-alert>` by its alert-key.
     */
   private def buildScreensModel(factTypes: Map[String, String]): List[Json] =
     orderedModuleFiles().flatMap { case (_, path) =>
@@ -373,8 +326,6 @@ object AuthoringServer {
         val fgSets = (page \\ "fg-set").map { fs =>
           val fgSetPath = fs \@ "path"
           val factType = factTypes.getOrElse(fgSetPath, "")
-          // The `<input type>` (or a bare `<select>`, which is the enum-backed select input). Surfaced so the flow form
-          // can pre-select the current type and offer only the types valid for the bound fact.
           val inputType =
             if ((fs \ "select").nonEmpty) "select"
             else (fs \ "input").headOption.map(_ \@ "type").getOrElse("")
@@ -385,7 +336,7 @@ object AuthoringServer {
             "inputType" -> inputType.asJson,
             "factType" -> factType.asJson,
             "validInputTypes" -> inputTypesForNode(factType).asJson,
-            // Mutually-exclusive gating (only one is ever non-empty). Editing them is the polarity toggle in T11/T13.
+            // Mutually exclusive; only one is ever non-empty.
             "ifTrue" -> (fs \@ "if-true").asJson,
             "ifFalse" -> (fs \@ "if-false").asJson,
           )
@@ -409,21 +360,15 @@ object AuthoringServer {
       }.toList
     }
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────
-  //  GET /author/lint  (T14 soft lint — analysis over on-disk Flow/FactDictionary, never a hard block)
-  // ──────────────────────────────────────────────────────────────────────────────────────────
+  // ─── GET /author/lint ───
 
   final private case class LintWarning(message: String, route: Option[String])
 
-  /** Soft-lint warnings surfaced in the Author Mode lint panel. Unlike /author/validate these never block a save; they
-    * flag likely authoring mistakes (a question wired to a computed fact, a gate/knockout no question can ever
-    * satisfy).
-    */
+  /** Likely authoring mistakes. Unlike /author/validate these never block a save. */
   private def buildLintJson(): Json = Try {
     val writable = writableFactPaths()
     val existing = allFactPaths()
 
-    // Every fact path a question actually writes.
     val boundPaths: Set[String] =
       orderedModuleFiles().flatMap { case (_, p) =>
         (xml.XML.loadString(os.read(p)) \\ "fg-set").map(_ \@ "path").filter(_.nonEmpty)
@@ -438,14 +383,12 @@ object AuthoringServer {
 
         for (fs <- page \\ "fg-set") {
           val path = fs \@ "path"
-          // (a) A question bound to an existing-but-not-Writable (i.e. Derived/computed) fact — users can't write it.
           if (path.nonEmpty && existing.contains(path) && !writable.contains(path))
             warnings += LintWarning(
               s"Question binds to '$path', which is a computed (Derived) fact — it can't be answered.",
               Some(route),
             )
 
-          // (b) A gate fact that is Writable but is never set by any question — the gate can never flip.
           for (gate <- Seq(fs \@ "if-true", fs \@ "if-false").filter(_.nonEmpty))
             if (writable.contains(gate) && !boundPaths.contains(gate))
               warnings += LintWarning(
@@ -454,7 +397,6 @@ object AuthoringServer {
               )
         }
 
-        // (c) A knockout alert whose condition is a Writable fact no question sets — the gate can never fire/clear.
         for (a <- page \\ "fg-alert" if (a \@ "knockout") == "true") {
           val cond = a \@ "condition"
           if (cond.nonEmpty && writable.contains(cond) && !boundPaths.contains(cond))
@@ -473,7 +415,6 @@ object AuthoringServer {
     )
   }.getOrElse(Json.obj("warnings" -> Json.arr()))
 
-  /** Every fact path defined on disk (existence set for lint). */
   private def allFactPaths(): Set[String] =
     Try {
       sortedFactFiles()
@@ -481,12 +422,10 @@ object AuthoringServer {
         .toSet
     }.getOrElse(Set.empty)
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────
-  //  GET /author/derived  (T18 — a fact's computation tree + the editor palette)
-  // ──────────────────────────────────────────────────────────────────────────────────────────
+  // ─── GET /author/derived ───
 
-  /** The `<Derived>` computation tree of `path` as an editable JSON tree (or null if the fact has no Derived block),
-    * plus the node palette and the fact-path lists the Dependency pickers need.
+  /** The `<Derived>` tree of `path` as editable JSON (null if the fact has none), plus the node palette and the
+    * fact-path lists the Dependency pickers need.
     */
   private def buildDerivedJson(path: String): Json = Try {
     val treeJson: Json = findFactElem(path)
@@ -500,15 +439,12 @@ object AuthoringServer {
       "path" -> path.asJson,
       "tree" -> treeJson,
       "palette" -> DerivedGrammar.paletteJson,
-      // A <Dependency> may point at *any* fact, so the picker lists them all; boolean/numeric subsets
-      // let the editor hint at type-appropriate choices for conditions vs. arithmetic operands.
       "allPaths" -> allFactPaths().toList.sorted.asJson,
       "booleanPaths" -> factTypes.collect { case (p, "BooleanNode") => p }.toList.sorted.asJson,
       "numericPaths" -> factTypes.collect { case (p, t) if NumericTypeNodes(t) => p }.toList.sorted.asJson,
     )
   }.getOrElse(Json.obj("path" -> path.asJson, "tree" -> Json.Null, "palette" -> DerivedGrammar.paletteJson))
 
-  /** The `path -> typeNode` map from the on-disk dictionary (e.g. "/foo" -> "DollarNode"). */
   private def factTypeMap(): Map[String, String] =
     Try {
       val dict = buildFactDictionary(Map.empty)
@@ -518,20 +454,16 @@ object AuthoringServer {
         .toMap
     }.getOrElse(Map.empty)
 
-  /** The `<Fact path="…">` element, scanning fact files in the runtime (alphabetical, last-wins) order. */
+  /** Scanned in the runtime (alphabetical, last-wins) order. */
   private def findFactElem(path: String): Option[xml.Node] =
     sortedFactFiles().reverse.iterator
       .flatMap(f => (xml.XML.loadString(os.read(f)) \\ "Fact").filter(fact => (fact \@ "path") == path))
       .nextOption()
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────
-  //  GET /author/fact-usage  (T19 — dependents of a fact, for the delete-impact preview)
-  // ──────────────────────────────────────────────────────────────────────────────────────────
+  // ─── GET /author/fact-usage ───
 
-  /** Everything that references `path`: other facts that depend on it (via `<Dependency>`, `<Find>`, `<Filter>`,
-    * `<CollectionItem collection>`), and flow references (`fg-set path`, `if-true`/ `if-false`, `fg-alert condition`,
-    * `fg-collection path`). Drives the delete-impact preview and the hard-block guard: a fact with any dependent cannot
-    * be deleted.
+  /** Everything referencing `path`, as facts that depend on it and flow references. Drives the delete-impact preview
+    * and the hard-block guard.
     */
   private def buildFactUsageJson(path: String): Json = Try {
     val deps = factDependents(path)
@@ -547,7 +479,6 @@ object AuthoringServer {
     )
   }.getOrElse(Json.obj("path" -> path.asJson, "canDelete" -> Json.False))
 
-  /** Fact paths whose definition references `path` (excluding the fact itself). */
   private def factDependents(path: String): List[String] =
     Try {
       sortedFactFiles()
@@ -561,10 +492,7 @@ object AuthoringServer {
         .toList
     }.getOrElse(Nil)
 
-  /** True if `fact` references `path` in any way that deleting `path` would break: a `<Dependency>`/
-    * `<Find>`/`<Filter>` `path`, a `<CollectionItem collection>`, or an `<Enum>`/`<MultiEnum>` `optionsPath` (an enum's
-    * option set is itself a fact).
-    */
+  /** Any reference deleting `path` would break. An enum's option set is itself a fact. */
   private def factReferencesPath(fact: xml.Node, path: String): Boolean = {
     val refs =
       (fact \\ "Dependency").map(_ \@ "path") ++
@@ -576,7 +504,6 @@ object AuthoringServer {
     refs.exists(_ == path)
   }
 
-  /** Flow references to `path`, as `(route, human-readable location)` pairs. */
   private def flowReferences(path: String): List[(String, String)] =
     Try {
       orderedModuleFiles()
@@ -598,9 +525,7 @@ object AuthoringServer {
         .toList
     }.getOrElse(Nil)
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────
-  //  POST /author/validate  &  POST /author/save
-  // ──────────────────────────────────────────────────────────────────────────────────────────
+  // ─── POST /author/validate and /author/save ───
 
   private def handleEdit(body: String, save: Boolean, flags: Map[String, Boolean]): Json = {
     val (target, payload) = parseTarget(body)
@@ -618,11 +543,8 @@ object AuthoringServer {
     }
   }
 
-  /** Write a validated candidate file to disk and re-run the exact build pipeline. The translationMap driving
-    * flow_en.yaml is built purely from flow XML, so most edit kinds (constant, factDescription, factConfig, derived)
-    * can never change it, and structural flow edits change attributes, not translatable text. Only re-sync the 7
-    * translated flow_{lang}.yaml files when this save actually changed flow_en.yaml's content, instead of rewriting
-    * every locale on every save regardless.
+  /** Write a validated candidate and re-run the build pipeline. The translation map is built purely from flow XML, so
+    * the seven translated locales are re-synced only when this save actually moved the generated `flow_<default>.yaml`.
     */
   private def persist(candidate: Candidate, flags: Map[String, Boolean]): Unit = {
     val previousFlowEn =
@@ -632,9 +554,7 @@ object AuthoringServer {
     if (!previousFlowEn.contains(os.read(generatedFlowContentPath(app)))) syncTranslationLocales(app)
   }
 
-  /** A parsed `edit` payload. `value`/`polarity` cover the scalar/attribute edits; `tree` carries the whole `<Derived>`
-    * computation tree for the calculation editor (T18).
-    */
+  /** `value` and `polarity` cover scalar and attribute edits; `tree` carries a whole `<Derived>` tree. */
   final private case class EditPayload(value: String, polarity: String, tree: Option[Json])
 
   private def parseTarget(body: String): (EditTarget, EditPayload) = {
@@ -643,7 +563,6 @@ object AuthoringServer {
     def s(name: String): Option[String] = t.get[String](name).toOption.filter(_.nonEmpty)
     val edit = doc.hcursor.downField("edit")
     val value = edit.get[String]("value").toOption.getOrElse("")
-    // `polarity` (if-true | if-false | none) rides along only for fg-set gating edits.
     val polarity = edit.get[String]("polarity").toOption.getOrElse("")
     val tree = edit.downField("tree").focus.filterNot(_.isNull)
     (
@@ -683,7 +602,6 @@ object AuthoringServer {
             }
         }
 
-      // ─── v1 structural edits (attribute patches) ─────────────────────────────────
       case "screenAttr" =>
         withFlowFile(t) { (file, name, route) =>
           val fgSetPath = t.path.getOrElse("")
@@ -730,7 +648,6 @@ object AuthoringServer {
           }
         }
 
-      // ─── v2 derived computation-tree edit (T18) ──────────────────────────────────
       case "derived" =>
         factsFileOf(t).flatMap { file =>
           payload.tree match {
@@ -744,11 +661,7 @@ object AuthoringServer {
     }
   }
 
-  /** Replace the single computation-node child of a fact's `<Derived>` with a tree built from the editor JSON. Only the
-    * `<Derived>…</Derived>` inner markup changes; the rest of the fact block — and every other fact in the file — is
-    * preserved byte-for-byte (the splice reuses the same located-block strategy as every other writer).
-    * `xmllint --format` re-tidies afterward.
-    */
+  /** Only the `<Derived>` inner markup changes; the rest of the file is preserved byte-for-byte. */
   private def patchDerived(content: String, path: String, tree: Json): Either[FieldError, String] =
     Try(DerivedXml.render(DerivedXml.fromJson(tree))) match {
       case Failure(e)    => Left(FieldError("value", rootMsg(e)))
@@ -797,7 +710,7 @@ object AuthoringServer {
   private def validateCandidate(t: EditTarget, candidate: Candidate, value: String): List[FieldError] =
     t.kind match {
       case "constant" =>
-        // Friendly type check first; short-circuit so a malformed value doesn't also surface a raw parser stack trace.
+        // Short-circuit so a malformed value does not also surface a raw parser stack trace.
         constantTypeError(candidate.constantType, value) match {
           case Some(e) => List(e)
           case None    =>
@@ -810,23 +723,18 @@ object AuthoringServer {
           factGraphError(candidate.sourceName, candidate.content).toList
 
       case "screenText" =>
-        // NB: we deliberately do NOT RelaxNG-validate the flow module here. Individual flow modules are
-        // fragments that don't independently satisfy FlowConfig.rng (several production modules — agi,
-        // filing-status, qualifying-children — fail it), and the build never RNG-validates flow anyway:
-        // the flow parser is the real gate. So we resolve + parse the whole flow with this module
-        // swapped in (which also rejects malformed XML) rather than RNG-checking the fragment.
+        // Flow modules are deliberately not RelaxNG-validated. An individual module is a fragment that
+        // does not independently satisfy FlowConfig.rng and several real ones fail it. Re-parsing the
+        // whole resolved flow is the gate, and it rejects malformed XML too.
         flowWiringError(candidate.sourceName, candidate.content).toList ++
           t.route.toList.flatMap(route => modalLinkErrors(candidate.content, route))
 
-      // Structural fg-set edits: the flow parser already enforces path-existence, input/type match, Boolean gating and
-      // if-true/if-false mutual exclusion — so we just re-run it, and add the one rule it doesn't check (a bound path
-      // must be Writable, not Derived).
+      // The parser covers existence, input/type match and gating; add the one rule it does not check.
       case "screenAttr" =>
         flowWiringError(candidate.sourceName, candidate.content).toList ++
           bindingWritableError(t, value).toList
 
-      // fg-alert edits: FgAlert.fromXml doesn't validate the condition or the knockout/alert-type pairing, so those are
-      // checked explicitly against the patched candidate (plus a full flow re-parse to catch anything structural).
+      // FgAlert.fromXml validates neither the condition nor the knockout/alert-type pairing.
       case "alertAttr" =>
         flowWiringError(candidate.sourceName, candidate.content).toList ++
           alertConfigErrors(candidate.content, t.route.getOrElse(""), t.alertId.getOrElse(""))
@@ -835,9 +743,6 @@ object AuthoringServer {
         schemaError(candidate.content, factsRng).toList ++
           factGraphError(candidate.sourceName, candidate.content).toList
 
-      // Derived edit: the RelaxNG schema enforces the compnode grammar (valid nesting, required
-      // slots), and FactDictionary.fromXml type-checks the tree (bad deps, type mismatches, cycles) —
-      // exactly the build's own gates, run against the spliced candidate. No re-serializer to trust.
       case "derived" =>
         schemaError(candidate.content, factsRng).toList ++
           factGraphError(candidate.sourceName, candidate.content).toList
@@ -845,15 +750,13 @@ object AuthoringServer {
       case _ => Nil
     }
 
-  /** T11: a rebound fg-set `path` must resolve to a Writable fact (a Derived value can't be written to). Only enforced
-    * on the path-rebind edit; the flow parser handles existence + type.
-    */
+  /** A rebound path must resolve to a Writable fact. The flow parser handles existence and type. */
   private def bindingWritableError(t: EditTarget, value: String): Option[FieldError] =
     if (t.field.contains("path") && value.trim.nonEmpty && !writableFactPaths().contains(value.trim))
       Some(FieldError("value", s"'$value' is not a writable fact — a question can only bind to a writable fact."))
     else None
 
-  /** T11: knockout/alert-type pairing + fg-alert condition/operator validity, evaluated on the patched candidate. */
+  /** Knockout/alert-type pairing and condition validity, evaluated on the patched candidate. */
   private def alertConfigErrors(moduleContent: String, route: String, alertId: String): List[FieldError] =
     Try {
       val root = xml.XML.loadString(moduleContent)
@@ -888,7 +791,6 @@ object AuthoringServer {
       }
     }.getOrElse(Nil)
 
-  /** The set of Writable fact paths on disk (used by the path-rebind writability guard). */
   private def writableFactPaths(): Set[String] =
     Try {
       sortedFactFiles().flatMap { f =>
@@ -897,11 +799,8 @@ object AuthoringServer {
       }.toSet
     }.getOrElse(Set.empty)
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────
-  //  POST /author/create-fact  &  /author/create-screen  (T17)  &  /author/delete-fact (T19)
-  // ──────────────────────────────────────────────────────────────────────────────────────────
+  // ─── POST /author/create-fact, /author/create-screen, /author/delete-fact ───
 
-  /** Shared JSON-body cursor helper. */
   private def bodyCursor(body: String): ACursor =
     io.circe.parser.parse(body).getOrElse(Json.Null).hcursor
 
@@ -981,7 +880,7 @@ object AuthoringServer {
     }
   }
 
-  /** The writable scalar types the create-fact wizard offers (the simple, config-free ones). */
+  /** The config-free scalar types the create-fact wizard offers. */
   private val WritableScalarTypes = Set("Dollar", "Int", "Boolean", "String", "Day")
 
   /** Create a net-new screen (a page shell, optionally with one first question) in a flow module. */
@@ -1043,7 +942,7 @@ object AuthoringServer {
     }
   }
 
-  /** The input types the first-question sub-form offers (the ones needing no extra options wiring). */
+  /** The input types needing no extra options wiring. */
   private val FirstQuestionInputTypes = Set("boolean", "dollar", "int", "text", "date")
 
   private def buildFgSet(path: String, question: String, inputType: String): Elem = {
@@ -1054,7 +953,7 @@ object AuthoringServer {
     <fg-set path={path}><question>{question}</question>{input}</fg-set>
   }
 
-  /** Delete a fact — hard-blocked if anything still references it (T19 policy). */
+  /** Hard-blocked if anything still references the fact. */
   private def handleDeleteFact(body: String, flags: Map[String, Boolean]): Json = {
     val c = bodyCursor(body)
     val path = str(c, "path")
@@ -1068,10 +967,8 @@ object AuthoringServer {
         val where = (deps.map(d => s"fact $d") ++ flow.map { case (r, w) => s"$w ($r)" }).take(8).mkString("; ")
         errorsJson(List(FieldError("path", s"'$path' is still used by: $where. Remove those references first.")))
       } else {
-        // A path is normally defined in one file, but constants are split by tax year — remove it from
-        // every file that defines it, then validate the merged dictionary once. The removal is surgical
-        // (drop the <Fact> block plus the leading newline+indent that positioned it) so the rest of the
-        // file stays byte-for-byte — no whole-file reformat, matching the other preserve-and-patch writers.
+        // A path is normally defined once, but tax-year constants split it across files. Remove it from
+        // every file that defines it, then validate the merged dictionary once.
         val files = factFilesContaining(path)
         val overrides = files.map(f => f.last -> factBlockWithLeadingWs(path).replaceFirstIn(os.read(f), "")).toMap
         factGraphErrorWith(overrides) match {
@@ -1092,8 +989,8 @@ object AuthoringServer {
   private def factFilesContaining(path: String): Seq[os.Path] =
     sortedFactFiles().filter(f => factBlockRegex(path).findFirstIn(os.read(f)).isDefined)
 
-  /** Pretty-print a single XML fragment (a `<Fact>` or `<page>`) on its own, stripping the `<?xml?>` declaration
-    * `xmllint` prepends. `--encode UTF-8` keeps non-ASCII literal. Returns None if the fragment doesn't parse.
+  /** Pretty-print one fragment on its own, stripping the `<?xml?>` declaration `xmllint` prepends. Returns None if the
+    * fragment does not parse.
     */
   private def formatFragment(fragmentXml: String): Option[String] = {
     val tmp = os.temp(contents = fragmentXml, suffix = ".xml")
@@ -1104,10 +1001,8 @@ object AuthoringServer {
     } finally os.remove(tmp)
   }
 
-  /** Splice a new element in immediately before the last occurrence of `marker` (`</Facts>` / `</FlowConfig>`),
-    * indented one level deeper than the marker, leaving the rest of the file byte-for-byte. This keeps a create-fact /
-    * create-screen diff to exactly the new element — the whole point of preserve-and-patch — instead of reflowing the
-    * entire file through `xmllint`.
+  /** Splice a new element immediately before the last `marker` (`</Facts>` / `</FlowConfig>`), indented one level
+    * deeper, so the diff is exactly the new element rather than a whole-file reflow.
     */
   private def spliceBefore(content: String, marker: String, fragmentXml: String): Option[String] =
     formatFragment(fragmentXml).flatMap { fragment =>
@@ -1122,7 +1017,6 @@ object AuthoringServer {
       }
     }
 
-  /** True if any flow page already uses `route`. */
   private def routeExists(route: String): Boolean =
     Try {
       orderedModuleFiles().exists { case (_, p) =>
@@ -1196,16 +1090,12 @@ object AuthoringServer {
     }
   }
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────
-  //  Preserve-and-patch writer (byte-for-byte surgical replacement of a single located element)
-  // ──────────────────────────────────────────────────────────────────────────────────────────
+  // ─── Preserve-and-patch writer ───
 
   private def factBlockRegex(path: String): Regex =
     ("(?s)<Fact\\s+path=\"" + Pattern.quote(path) + "\"[^>]*>.*?</Fact>").r
 
-  /** The `<Fact>` block plus the leading newline + indentation that positioned it — matched so a delete removes the
-    * whole line the fact opened on, leaving no dangling blank line and touching nothing else.
-    */
+  /** Includes the leading newline and indentation, so a delete leaves no dangling blank line. */
   private def factBlockWithLeadingWs(path: String): Regex =
     ("(?s)\\n[ \\t]*<Fact\\s+path=\"" + Pattern.quote(path) + "\"[^>]*>.*?</Fact>").r
 
@@ -1253,7 +1143,7 @@ object AuthoringServer {
       case Some(block) =>
         val escaped = escapeBareAmpersands(value)
         val newBlock = replaceElementInner(block, "Description", escaped).getOrElse {
-          // No existing <Description>: insert one right after the <Fact …> opening tag (xmllint --format fixes indent).
+          // Insert one right after the opening tag; xmllint --format fixes the indent.
           val openTag = ("(?s)<Fact\\s+path=\"" + Pattern.quote(path) + "\"[^>]*>").r.findFirstIn(block).get
           replaceFirstLiteral(block, openTag, s"$openTag\n<Description>$escaped</Description>")
         }
@@ -1271,13 +1161,11 @@ object AuthoringServer {
     pageBlockRegex(route).findFirstIn(content) match {
       case None       => Left(FieldError("value", s"Could not locate screen $route in the flow file."))
       case Some(page) =>
-        // Question/hint/alert heading are mixed content (they may contain <fg-show/> etc.), so markup is preserved and
-        // only bare ampersands are escaped; malformed XML is caught downstream by xmllint + the flow parser.
+        // Mixed content that may contain markup, so only bare ampersands are escaped.
         val escaped = escapeBareAmpersands(value)
         val patchedPage: Either[FieldError, String] = field match {
           case "question" | "hint" =>
-            // A page can carry several `<fg-set>` blocks (one per collection item / income source), so question/hint
-            // edits are scoped to the specific fg-set by its (unique) fact path rather than the first match on the page.
+            // Scoped to one fg-set by its unique fact path, since a page can carry several.
             fgSetPath match {
               case None     => Left(FieldError("value", s"Missing fact path for this $field edit."))
               case Some(fp) =>
@@ -1308,24 +1196,19 @@ object AuthoringServer {
         patchedPage.map(newPage => replaceFirstLiteral(content, page, newPage))
     }
 
-  /** Escape a bare `&` (one not already opening a numeric/named entity) so authors can type "AT&T" without breaking
-    * XML, while leaving legitimate markup (`<fg-show/>`) and existing entities untouched.
+  /** Escape an `&` that is not already opening an entity, so an author can type "AT&T", while leaving legitimate markup
+    * untouched.
     */
   private val bareAmpersand = "&(?!(#[0-9]+|#x[0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]*);)".r
   private def escapeBareAmpersands(s: String): String = bareAmpersand.replaceAllIn(s, "&amp;")
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────
-  //  Attribute-patch writer (v1 T12) — surgical patch of a single attribute on one opening tag.
-  //  Structure/text around the attribute is preserved byte-for-byte; xmllint --format tidies whitespace.
-  // ──────────────────────────────────────────────────────────────────────────────────────────
+  // ─── Attribute-patch writer ───
 
   /** The opening (or self-closing) tag of the first `<tag …>` in `scope`. */
   private def openingTagOf(scope: String, tag: String): Option[String] =
     ("(?s)<" + Pattern.quote(tag) + "\\b[^>]*?/?>").r.findFirstIn(scope)
 
-  /** Set (or, with `newValue = None`, remove) a single attribute on the first `<tag …>` opening tag in `scope`. Returns
-    * the rewritten scope, or a FieldError if the tag can't be located.
-    */
+  /** `newValue = None` removes the attribute. Returns a FieldError if the tag cannot be located. */
   private def patchOpeningTagAttr(
       scope: String,
       tag: String,
@@ -1386,8 +1269,8 @@ object AuthoringServer {
       }
     }
 
-  /** Replace the gating on an fg-set. `polarity` is "if-true", "if-false", or "none"; both attributes are removed first
-    * so the two never coexist (the mutual-exclusion rule the flow parser enforces).
+  /** `polarity` is "if-true", "if-false" or "none". Both attributes are removed first, so the mutual exclusion the flow
+    * parser enforces cannot be violated halfway through a patch.
     */
   private def patchGating(
       content: String,
@@ -1431,7 +1314,7 @@ object AuthoringServer {
       case Some(page) => patch(page).map(replaceFirstLiteral(content, page, _))
     }
 
-  // ─── Fact <Placeholder> / <Limit> value patch (v1 T15) ──────────────────────────────────────
+  // ─── Fact <Placeholder> / <Limit> value patch ───
 
   /** fact-graph type node → the scalar element name used inside `<Placeholder>`/`<Limit>`. */
   private def scalarTagForNode(typeNode: String): Option[String] = typeNode match {
@@ -1443,9 +1326,7 @@ object AuthoringServer {
     case _              => None
   }
 
-  /** Set, change, or (empty value) clear a fact's `<Placeholder>`. Placeholder is a Fact-level sibling of `<Writable>`;
-    * a new one is inserted immediately after `</Writable>` so it stays schema-valid.
-    */
+  /** Placeholder is a Fact-level sibling of `<Writable>`, so a new one goes right after `</Writable>`. */
   private def patchPlaceholder(
       content: String,
       path: String,
@@ -1475,9 +1356,7 @@ object AuthoringServer {
       }
     }
 
-  /** Set, change, or (empty value) clear a `<Limit type="Min|Max">`. Limits live *inside* `<Writable>`, so a new one is
-    * inserted just before `</Writable>`.
-    */
+  /** Limits live inside `<Writable>`, so a new one goes just before `</Writable>`. */
   private def patchLimit(
       content: String,
       path: String,
@@ -1519,12 +1398,10 @@ object AuthoringServer {
       case Some(block) => patch(block).map(replaceFirstLiteral(content, block, _))
     }
 
-  /** Collapse a run of blank lines left by removing an element (cosmetic; xmllint --format re-tidies afterward). */
+  /** Cosmetic; xmllint --format re-tidies afterward. */
   private def stripBlank(s: String): String = s.replaceAll("(?m)^[ \\t]*\\r?\\n", "")
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────
-  //  Candidate builders (rebuild the FactDictionary / resolved Flow with one file overridden)
-  // ──────────────────────────────────────────────────────────────────────────────────────────
+  // ─── Candidate builders (rebuild the dictionary / resolved flow with one file overridden) ───
 
   private def sortedFactFiles(): Seq[os.Path] =
     os.list(factsDir).filter(p => os.isFile(p) && p.ext == "xml").sortBy(_.last)
@@ -1544,9 +1421,7 @@ object AuthoringServer {
       }
       .map { case (name, p) => (p, name) }
 
-  /** Merge all fact XML files in `facts/` (with `overrides` keyed by file name substituted) and build a FactDictionary;
-    * throws on any integrity error, exactly as the build does.
-    */
+  /** `overrides` are keyed by file name. Throws on any integrity error, exactly as the build does. */
   private def buildFactDictionary(overrides: Map[String, String]): FactDictionary = {
     val buffer = new NodeBuffer()
     for (file <- sortedFactFiles()) {
@@ -1557,8 +1432,8 @@ object AuthoringServer {
     FactDictionary.fromXml(module)
   }
 
-  /** Resolve `flow/index.xml`'s modules into a single `<FlowConfig>` of pages, with `overrides` (keyed by module file
-    * name) substituted. Mirrors `FormBuilder.regenerate`'s module resolution, but reads from disk directly.
+  /** Mirrors `FormBuilder.regenerate`'s module resolution, but reads from disk. `overrides` are keyed by module file
+    * name.
     */
   private def buildResolvedFlowConfig(overrides: Map[String, String]): Elem = {
     val idx = xml.XML.loadString(os.read(flowDir / "index.xml"))
@@ -1574,14 +1449,10 @@ object AuthoringServer {
     <FlowConfig>{resolved}</FlowConfig>
   }
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────
-  //  xmllint shell-outs (match `make format` / `make validate-xml`)
-  // ──────────────────────────────────────────────────────────────────────────────────────────
+  // ─── xmllint shell-outs (match `make format` / `make validate-xml`) ───
 
-  /** Format XML content via `xmllint --format` (best-effort: returns the input unchanged if it fails to parse).
-    * `--encode UTF-8` keeps non-ASCII characters (e.g. the typographic apostrophe `’` in alert copy) literal instead of
-    * escaping them to `&#x2019;` numeric entities — otherwise every reformat churns the smart quotes across the whole
-    * file.
+  /** Best-effort: returns the input unchanged if it fails to parse. `--encode UTF-8` is load-bearing. Without it
+    * xmllint escapes non-ASCII to numeric entities and every save churns the smart quotes across the whole file.
     */
   private def xmllintFormat(content: String): String = {
     val tmp = os.temp(contents = content, suffix = ".xml")

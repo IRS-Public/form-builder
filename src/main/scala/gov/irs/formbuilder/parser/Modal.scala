@@ -1,3 +1,6 @@
+// `<modal-dialog id="...">`: a dialog referenced by a `<modal-link for="...">` elsewhere on the page. Requires a
+// `<modal-heading>` and a `<modal-content>` wrapper; the content's children are parsed as ordinary flow nodes.
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.formbuilder.exceptions.InvalidFormConfig
@@ -33,11 +36,7 @@ object Modal extends FlowNodeParser {
     if (id == null) {
       throw InvalidFormConfig(s"Modal is missing an id")
     }
-    // Checked before `.head` rather than after it. Both of these used to read `val n = (…).head; if
-    // (n.isEmpty) throw InvalidFormConfig(…)`, so a modal written without the wrapper elements —
-    // the obvious mistake, since every other node in a flow takes its content directly — died on
-    // `NoSuchElementException: next on empty iterator` and the message naming the actual problem
-    // was unreachable.
+    // headOption rather than .head, so a missing wrapper reports the message below instead of NoSuchElementException.
     val modalHeadingNode = (modalElement \ "modal-heading").headOption.getOrElse {
       throw InvalidFormConfig(s"Modal $id is missing a <modal-heading>")
     }

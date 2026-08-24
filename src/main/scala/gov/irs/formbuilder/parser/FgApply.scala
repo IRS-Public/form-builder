@@ -1,3 +1,6 @@
+// `<fg-apply path="..." value="...">`: writes a literal into the Fact Graph as soon as the page renders.
+// Both attributes are required; the path is checked against the fact dictionary at build time.
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.factgraph.FactDictionary

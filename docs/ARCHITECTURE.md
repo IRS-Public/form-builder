@@ -250,6 +250,18 @@ Four ScalaTest specs, all `AnyFunSpec`, 39 tests between them:
 `runtime-config.test.mjs` and `fg-graph-bridge.test.mjs`. Both stub what they need (a fake
 `BroadcastChannel`, a fake `document`) instead of pulling in jsdom.
 
+## Deeper reading
+
+Four documents under `docs/internals/` cover one area each in detail. The source files in each area
+point at them rather than restating them in comments.
+
+| Document | Covers |
+|---|---|
+| [app-entry-and-assets.md](internals/app-entry-and-assets.md) | `FormBuilder.run`, `FormBuilderApp`, build flags, template resolution, locale layering, fact dictionary loading, browser-asset extraction |
+| [flow-parsing-and-generation.md](internals/flow-parsing-and-generation.md) | The `parser` and `generators` packages: the node model, conditions, translation keys, page splitting, and what each generator emits |
+| [flow-runtime.md](internals/flow-runtime.md) | The browser half: the custom elements, runtime configuration, path derivation, conditional visibility, validation and the Fact Explorer bridge |
+| [author-mode.md](internals/author-mode.md) | The authoring server: endpoints, edit kinds, the validation stack, and the preserve-and-patch writers |
+
 ## Gotchas
 
 - **Nothing here may name a `vendor/taxpert/` path.** The workspace mounts through the empty

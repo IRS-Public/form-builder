@@ -3,7 +3,7 @@ ThisBuild / scalaVersion := "3.7.2"
 // Both this library and the gov.irs:factgraph it builds against are consumed from the local Ivy
 // cache, published there from a checkout:
 //
-//   git clone <fact-graph> && cd fact-graph && sbt publishLocal
+//   git clone https://github.com/IRS-Public/fact-graph && cd fact-graph && sbt publishLocal
 //
 // which lands 3.1.0-SNAPSHOT in ~/.ivy2/local, already first in sbt's default resolver chain. That
 // is why this build declares no resolvers at all: the one place these artifacts come from is
@@ -14,9 +14,9 @@ scalafmtConfig := file(".scalafmt.conf")
 
 // Form Builder: everything that turns Flow XML + a Fact Dictionary into a static site, with none of
 // the tax product on top. Published to the local Ivy cache with `sbt publishLocal`, exactly as
-// ../fact-graph is, and consumed by each app's build.sbt.
+// the fact-graph library is, and consumed by each app's build.sbt.
 //
-// The other library an app may depend on is `taxpert` (../taxpert), and the two answer different
+// The other library an app may depend on is `taxpert`, in its own repository, and the two answer
 // questions. Form Builder decides what the site *is* — including how it looks and how it behaves in a
 // browser: `src/main/resources/form-builder/website-static/` carries the theme and the flow runtime, and
 // FormBuilderAssets.scala extracts them from this jar as the generator runs. Taxpert is the workspace
@@ -75,6 +75,6 @@ lazy val root = (project in file("."))
     // No scaladoc artifact. `publishLocal` would otherwise run scaladoc, which reads the TASTy of
     // every dependency — and factgraph's is cross-built for Scala.js, so its `@JSExport`
     // annotations fail to resolve on the JVM classpath. The jar and pom are what a consuming app
-    // needs; the API docs are the source, which sits next door in this monorepo.
+    // needs, and the API docs are the source in this repository.
     Compile / packageDoc / publishArtifact := false,
     )

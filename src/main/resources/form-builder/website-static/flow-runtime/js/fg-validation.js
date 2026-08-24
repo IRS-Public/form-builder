@@ -1,3 +1,6 @@
+// Page-level validation and the focus moves that go with it: the summary alert, the first invalid
+// field, and a visible knockout. See docs/internals/flow-runtime.md.
+
 export function focusKnockoutAlert (knockoutAlert) {
   const heading = knockoutAlert.querySelector('.usa-alert__heading')
   const target = heading ?? knockoutAlert
@@ -10,19 +13,16 @@ export function focusKnockoutAlert (knockoutAlert) {
 }
 
 export function showValidationError () {
-  // Target custom class validate-alert
   const existingAlert = document.querySelector('.validate-alert')
   if (existingAlert) {
     existingAlert.remove()
   }
-  // Clone the alert
+  // #validate-alert-template is rendered by fragments/js-templates.html.
   const template = document.getElementById('validate-alert-template')
   const alertElement = template.content.cloneNode(true)
   const mainContent = document.getElementById('main-content')
-  // Place the alert at the top of the main content
   mainContent.insertBefore(alertElement, mainContent.firstChild)
 
-  // Focus the first invalid field
   const firstErrorFocusTarget = document.querySelector(
     'fg-alert[blocking]:not(.hidden) :is(.usa-alert__heading, .usa-alert__text),' +
     'fg-set:not(.hidden) .usa-form-group--error .usa-fieldset,' +
@@ -34,7 +34,7 @@ export function showValidationError () {
     firstErrorFocusTarget.setAttribute('tabindex', '-1')
     firstErrorFocusTarget.focus()
 
-    // Remove tabindex after focus to prevent outline from appearing on subsequent clicks
+    // Removed after focus, so the outline does not persist on later clicks.
     firstErrorFocusTarget.addEventListener('blur', () => {
       firstErrorFocusTarget.removeAttribute('tabindex')
     }, { once: true })
@@ -46,9 +46,8 @@ export function validateSectionForNavigation () {
   const missingFields = []
   let hasValidationErrors = false
 
-  // Loop through fields and mark incomplete if empty and required
   for (const fgSet of fgSets) {
-    // It's only blocking if it's not optional, not complete, and not the child of a hidden element
+    // Blocking only if not optional, not complete, and not inside a hidden element.
     if (!fgSet.optional && !fgSet.isComplete() && !fgSet.closest('.hidden')) {
       const fieldName = fgSet.path
       missingFields.push(fieldName)
@@ -57,7 +56,6 @@ export function validateSectionForNavigation () {
       }
     }
   }
-  // Display validation error if there are missing fields/incomplete
   if (missingFields.length > 0 || hasValidationErrors) {
     showValidationError()
     return false

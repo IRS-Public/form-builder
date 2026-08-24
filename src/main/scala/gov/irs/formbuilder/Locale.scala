@@ -6,25 +6,29 @@ import io.circe.yaml.Printer
 import scala.collection.mutable
 import scala.io.Source
 
+/** Locale lookup for the generated site, and the two functions that maintain the flow locale files.
+  *
+  * [[Locale.get]] resolves a key across three layers, app first: the app's own `{lang}.yaml`, then this library's
+  * chrome `{lang}.yaml`, then the generated `flow_{lang}.yaml`. App-first, so an app that wants different wording for a
+  * shared component declares the key and wins, the same way it overrides a template. A locale test therefore has to
+  * compare the layered result rather than the app's file alone.
+  *
+  * The app's own files are read from disk rather than the classpath, because Author Mode rewrites them and re-runs the
+  * build in-process. The chrome layer comes off the classpath, because nothing edits it at runtime.
+  *
+  * `docs/internals/app-entry-and-assets.md` covers the layering, the generated files and the TODO-marker mechanism.
+  */
+
 def generatedFlowContentPath(app: FormBuilderApp) = app.localesDir / s"flow_${app.defaultLocale}.yaml"
 private def translatedFlowContentPath(app: FormBuilderApp, languageCode: String) =
   app.localesDir / s"flow_$languageCode.yaml"
 
-/** The chrome strings the scaffold's own templates ask for, shipped in this jar.
-  *
-  * Everything under `components.*` and `workspace.tools.*` — the wording on a collection's add/remove buttons, a date
-  * field's month names, a modal's close button. It is the same text in every Form Builder app, and it was duplicated
-  * verbatim in each one's locale files.
-  *
-  * Read off the classpath rather than from disk, unlike the app's own locales: this is library content, it never
-  * changes while the dev server runs, and Author Mode has no reason to edit it.
-  *
-  * Public because an app's locale tests have to reason about the layered result rather than its own file alone — see
-  * `YamlValidatorSpec` in either app.
+/** The chrome strings the scaffold's own templates ask for, shipped in this jar in every supported language. Public so
+  * an app's locale tests can reach this layer; see `YamlValidatorSpec`.
   */
 def chromeLocaleContent(languageCode: String): Option[Json] =
-  // Anchored on a real class of this library rather than on `getClass`: a top-level def compiles into
-  // a synthetic `Locale$package` holder whose resource lookup does not reach this jar's resources.
+  // Anchored on a real class of this library. A top-level def compiles into a synthetic
+  // `Locale$package` holder whose resource lookup does not reach this jar's resources.
   Option(classOf[Locale].getResourceAsStream(s"/form-builder/locales/$languageCode.yaml")).map { stream =>
     val text =
       try Source.fromInputStream(stream, "UTF-8").mkString
@@ -37,10 +41,6 @@ def chromeLocaleContent(languageCode: String): Option[Json] =
   }
 
 case class Locale(languageCode: String, app: FormBuilderApp) {
-  // Read the static locale file from disk (not the classpath). Author Mode re-runs the whole build
-  // pipeline in-process after writing edited XML to `src/main/resources`, which makes sbt's `~run`
-  // watcher rebuild `target/.../classes` underneath us; `Source.fromResource` then transiently fails
-  // to find these files. Reading from the source tree (always present) sidesteps that race.
   private val localeFilePath = app.localesDir / s"${languageCode}.yaml"
   private val mainContent = yaml.scalayaml.Parser.parse(os.read(localeFilePath)) match {
     case Right(parsedData) =>
@@ -61,15 +61,6 @@ case class Locale(languageCode: String, app: FormBuilderApp) {
 
   private val libraryContent = chromeLocaleContent(languageCode)
 
-  /** Resolve a key across the three layers, app first.
-    *
-    *   1. the app's own `{lang}.yaml` — its title, layout, results, nav
-    *   1. this library's `{lang}.yaml` — the chrome every generated flow shares
-    *   1. the generated `flow_{lang}.yaml` — text lifted out of the flow XML
-    *
-    * App-first, so an app that wants different wording for a shared component just declares the key and wins, the same
-    * way it overrides a template.
-    */
   def get(key: String): Json =
     GetValueFromLocaleJson(key, mainContent)
       .orElse(libraryContent.flatMap(GetValueFromLocaleJson(key, _)))
@@ -82,46 +73,28 @@ implicit val anyEncoder: Encoder[Any] = Encoder.instance {
   case s: String                      => Json.fromString(s)
 }
 
-/** Generate the flow_en.yaml locale file.
-  *
-  * @param translationMap
-  *   A populated map of all of the key-value pairs for translations
+/** Rewrite the default language's `flow_{lang}.yaml` from the map the flow parser accumulated. Hand edits to that file
+  * are lost on the next build. Authored text belongs in the flow XML.
   */
 def generateFlowLocaleFile(translationMap: mutable.LinkedHashMap[String, Any], app: FormBuilderApp): Unit = {
   val generatedPath = generatedFlowContentPath(app)
   val json = translationMap.asJson
   val yamlString = Printer(dropNullKeys = true, preserveOrder = true).pretty(json)
   val content = s"# DO NOT EDIT, THIS IS A GENERATED FILE\n$yamlString"
-  // Skip the write when content is unchanged so an edit that can't affect flow text (e.g. a
-  // constant or fact-description save) doesn't touch this file's mtime/git status.
+  // Skip an unchanged write, so an edit that cannot affect flow text leaves git status alone.
   if (!os.exists(generatedPath) || os.read(generatedPath) != content) {
     os.write.over(generatedPath, content)
     Log.info(s"Generated flow content at ${generatedPath}")
   }
 }
 
-// Marker prefixed onto a stubbed value before serialization, then rewritten into a
-// standalone `# TODO: translate` comment above the key in the emitted YAML. Chosen to
-// never collide with real translation text.
+// Prefixed onto a stubbed value, then rewritten into a comment line above the key, because the circe
+// YAML printer cannot emit comments directly.
 private val TodoTranslateSentinel = "@@TODO_TRANSLATE@@"
 private val TodoTranslateComment = "# TODO: translate"
 
-/** Re-sync every non-English `flow_{lang}.yaml` to the current `flow_en.yaml` key set.
-  *
-  * Intended to be called in-process by the Author Mode save endpoint (package `gov.irs.formbuilder.authoring`)
-  * immediately after [[generateFlowLocaleFile]] has rewritten `flow_en.yaml`, so that `YamlValidatorSpec` / CI stay
-  * green after any on-screen-text or option edit. For each of the 7 locales it, using `flow_en.yaml` as the source of
-  * truth for the key structure:
-  *
-  *   - keeps every existing human translation whose key still exists in `flow_en.yaml`, byte-for-byte in text (only
-  *     YAML formatting is normalized),
-  *   - adds any key present in `flow_en.yaml` but missing from the locale, seeded with the English value and tagged
-  *     with a `# TODO: translate` comment, and
-  *   - drops any orphaned key that is no longer present in `flow_en.yaml`.
-  *
-  * Reads the freshly-written `flow_en.yaml` from disk, so callers only need to have regenerated it first. This is
-  * deliberately NOT wired into the normal build pipeline ([[regenerate]]): it rewrites human-maintained files and so
-  * should only run on an authoring save, never on every dev build.
+/** Re-key every translated `flow_{lang}.yaml` against the default language's. Deliberately not wired into
+  * [[FormBuilder.regenerate]], because it rewrites human-maintained files. It runs only on an Author Mode save.
   */
 def syncTranslationLocales(app: FormBuilderApp): Unit = {
   val generatedPath = generatedFlowContentPath(app)
@@ -145,8 +118,7 @@ private def syncTranslationLocale(app: FormBuilderApp, locale: String, englishCo
 
   val merged = mergeLocaleTree(englishContent, existing)
 
-  // splitLines = false keeps each value on a single line (matching the existing
-  // hand-written translation files, and keeping the TODO sentinel on the key's line).
+  // splitLines = false keeps the TODO sentinel on the key's own line.
   val yamlString = Printer(dropNullKeys = true, preserveOrder = true, splitLines = false).pretty(merged)
   val withTodoComments = yamlString.linesIterator
     .flatMap { line =>
@@ -157,21 +129,17 @@ private def syncTranslationLocale(app: FormBuilderApp, locale: String, englishCo
     }
     .mkString("\n")
 
-  val header = s"# Auto-synced from flow_en.yaml — do not add/remove keys here.\n" +
+  val header = s"# Auto-synced from flow_en.yaml. Do not add or remove keys here.\n" +
     s"# Human translations are preserved; entries marked \"$TodoTranslateComment\" still need translation.\n"
   val content = s"$header$withTodoComments\n"
-  // Skip the write when content is unchanged so locales unaffected by the edit that triggered
-  // this sync aren't rewritten (and don't show up as touched in git).
   if (!os.exists(localePath) || os.read(localePath) != content) {
     os.write.over(localePath, content)
     Log.info(s"Synced flow locale $locale at ${localePath}")
   }
 }
 
-/** Build a locale tree shaped exactly like `english` (the source of truth for keys/order):
-  *   - object nodes recurse, iterating English keys only (so orphaned locale keys are dropped),
-  *   - leaf nodes keep the existing translated string when present, otherwise fall back to the English value prefixed
-  *     with [[TodoTranslateSentinel]] to mark it for translation.
+/** Shaped exactly like `english`, so orphaned locale keys are dropped. A leaf keeps its existing translation, or takes
+  * the English value prefixed with [[TodoTranslateSentinel]].
   */
 private def mergeLocaleTree(english: Json, existing: Option[Json]): Json =
   english.asObject match {

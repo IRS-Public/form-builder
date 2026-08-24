@@ -1,3 +1,8 @@
+// `<fg-collection>`: a repeating group bound to a CollectionNode fact. Children are parsed as
+// ordinary flow nodes and rendered once per item by the browser runtime.
+// `add-item-if-true` and `seed-item-if-true` must name Boolean facts, validated here.
+// Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.factgraph.FactDictionary
@@ -33,9 +38,8 @@ case class FgCollection(
     context.setVariable("seedItemIfTrue", seedItemIfTrue.getOrElse(""))
     context.setVariable("itemName", itemName)
     context.setVariable("determiner", determiner)
-    // The key the template reads the *translated* item name from. `itemName` itself is still on the
-    // context because two ids are derived from it (the remove-modal's, and the title-cased heading),
-    // and those must not change per language.
+    // The template reads the translated item name from this key. The raw `itemName` stays on the context because
+    // two element ids are derived from it and must not change per language.
     context.setVariable("contentKey", translationKeyBase)
 
     templateEngine.process("nodes/fg-collection", context)
@@ -71,9 +75,6 @@ object FgCollection extends FlowNodeParser {
       }
     }
 
-    // Whether this collection opens with one empty row already showing. The runtime used to decide
-    // that against a fact path written into the shared JS; declaring it here keeps the rule with
-    // the flow it belongs to and out of taxpert.
     seedItemIfTrue.foreach { factPath =>
       validateFact(factPath, factDictionary)
       if (!factDictionary.getDefinition(factPath).isBoolean) {
@@ -82,10 +83,8 @@ object FgCollection extends FlowNodeParser {
     }
 
     val translationContext = parentTranslationContext.forChildWithId("collection" + path)
-    // The item name is authored text — "child", "job", "pension or annuity income" — so it goes
-    // through the translation context like every question and hint. Without that a Spanish page
-    // reads "eliminar este job". The determiner does not: it is a closed vocabulary
-    // (another/more) that the scaffold's own chrome locale already translates.
+    // The item name is authored text, so it is translated. The determiner is not: it is a closed vocabulary
+    // (another/more) that the library's own chrome locale already covers.
     translationContext.updateValue("itemName", itemName)
 
     val children = flowParser.parseChildElements(fgCollectionElement, translationContext)

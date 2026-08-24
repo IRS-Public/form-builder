@@ -5,8 +5,8 @@ class ModalLink extends HTMLElement {
     const link = document.createElement('a')
     link.classList.add('usa-link')
     link.href = '#' + this.modalId
-    // The link's text is this element's own authored content — the flow's markup, already parsed —
-    // being moved inside the <a>, not markup this file writes.
+    // This element's own authored content, already parsed, being moved inside the <a>. No markup
+    // is written here.
     // eslint-disable-next-line no-restricted-syntax
     link.innerHTML = this.innerHTML
     link.addEventListener('click', (event) => this.onclick(event))
@@ -30,7 +30,6 @@ class ModalLink extends HTMLElement {
 }
 customElements.define('modal-link', ModalLink)
 
-// Trap focus utility function
 function trapFocus (element) {
   const focusableEls = element.querySelectorAll(
     'a[href]:not([disabled]), button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([disabled]):not([tabindex="-1"])'

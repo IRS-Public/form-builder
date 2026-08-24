@@ -1,20 +1,14 @@
+// Rewrites the page list for --singleQuestionPerScreen. Every authored Page becomes one or more
+// emitted Pages, each carrying `sourcePageRoute` so the stepper can still group them.
+// Runs after parsing and before locale generation, on the parsed tree rather than on XML.
+// Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.parser
 
 import scala.collection.mutable
 
-/** Splits multi-question pages into single-question pages.
-  *
-  * Each input Page is walked recursively. Section and FgDetail wrappers are flattened (their children are pulled
-  * inline). Each FgSet or FgCollection encountered becomes its own emitted Page, with any FgAlert nodes that
-  * immediately follow it (within the same source page) attached to it. Html nodes before the first question on a source
-  * page travel with the first emitted page. Modal nodes are collected from the source page and duplicated onto every
-  * emitted page.
-  *
-  * FgDetail's condition (if any) is propagated to contained FgSets that don't declare their own, preserving conditional
-  * visibility for AGI's collapsible-eligibility-gated questions.
-  *
-  * Pages with no FgSet/FgCollection (e.g., results) pass through unchanged but get sourcePageRoute set so the stepper
-  * can still group them.
+/** A page with `group-by="h3"` is cut along its top-level headings instead. A page with no question passes through
+  * unchanged, with `sourcePageRoute` set.
   */
 object PageSplitter {
 
@@ -66,13 +60,8 @@ object PageSplitter {
     emitted.toList
   }
 
-  /** Group-by-h3 slicing: cut the page along its top-level h3 siblings. Each h3 marks the start of a new emitted Page;
-    * the h3 itself plus the following siblings (until the next h3 or end of page) become that page's content. Pre-h3
-    * intro content attaches to the first emitted page.
-    *
-    * Trailing groups that contain no FgSet/FgCollection (e.g., AGI's "Your AGI was: X" summary with knockout alerts)
-    * are merged into the most recent group with questions so knockouts still fire on the user's Next click from the
-    * last-question page.
+  /** Cut the page along its top-level `<h3>` siblings, one emitted Page per heading. Content before the first heading
+    * attaches to the first emitted page.
     */
   private def splitByH3(page: Page): List[Page] = {
     val modals = collectModals(page.children)
@@ -93,7 +82,8 @@ object PageSplitter {
       flat.slice(start, end)
     }
 
-    // Merge no-question trailing groups into the previous group with questions.
+    // A group with no question (a closing summary and its knockout alerts, say) merges into the previous group that
+    // has one, so its knockouts still fire on Next from the last question.
     val merged = mutable.ListBuffer.empty[Vector[FlowNode]]
     groupSlices.foreach { slice =>
       val hasQuestion = slice.exists(n => n.isInstanceOf[FgSet] || n.isInstanceOf[FgCollection])
@@ -136,8 +126,8 @@ object PageSplitter {
     else alphaSpace.toLowerCase.split("\\s+").filter(_.nonEmpty).take(4).mkString("-")
   }
 
-  /** Recursively flatten container wrappers (Section, FgDetail) into a linear sequence of FlowNodes. Propagates
-    * FgDetail.condition to contained FgSets without their own condition.
+  /** Flatten Section and FgDetail wrappers into a linear sequence, propagating an FgDetail's condition down to any
+    * contained question that declares none of its own.
     */
   private def flatten(node: FlowNode, inherited: Option[Condition]): Seq[FlowNode] = node match {
     case s: Section  => s.children.flatMap(c => flatten(c, inherited))

@@ -1,3 +1,9 @@
+// The fallthrough node type: an element with no registered parser is re-emitted as HTML.
+//
+// A leaf element stores its inner markup in the translation context and reads it back per language
+// at render time. Anything else wraps its parsed children between the original tags.
+// Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.formbuilder.FormBuilderTemplateEngine
@@ -14,10 +20,7 @@ case class HtmlLeafNode(htmlElement: Elem, openTag: String, closeTag: String, tr
 
 case class HtmlWithChildren(openTag: String, closeTag: String, children: Seq[FlowNode]) extends Html {
   override def html(templateEngine: FormBuilderTemplateEngine): String = {
-    // parse children
     val childrenHtml = children.html(templateEngine)
-
-    // return children inside of current element tag as html
     s"$openTag$childrenHtml$closeTag"
   }
 }
@@ -36,9 +39,9 @@ object Html extends FlowNodeParser {
       val translationKey = parentTranslationContext.fullKey(childKey)
       parentTranslationContext.updateValue(childKey, content)
 
-      // Since this is a leaf node we just pass in the translation key directly and don't update translationContext
       HtmlLeafNode(htmlElement, openTag, closeTag, translationKey)
     } else {
+      // No translation-key level for these, so wrapping content in a <div> cannot re-key what is inside.
       val ignoredElements = List("div", "details", "summary")
       val translationContext =
         if (ignoredElements.contains(htmlElement.label)) parentTranslationContext

@@ -3,27 +3,19 @@ package gov.irs.formbuilder.authoring
 import io.circe.*
 import io.circe.syntax.*
 
-/** The editor-facing palette for the Derived computation-tree editor (T18).
+/** The editor-facing palette for Author Mode's `<Derived>` computation-tree editor: which node types are insertable,
+  * how each is rendered, and what child tags a structural node expects.
   *
-  * This is *UX metadata only*: it tells `author-mode.js` which node types are insertable, how to render each one (a
-  * value input, a fact-path dropdown, an attribute field, or a container with children), and what child tags a
-  * structural node expects. It is deliberately curated to the node types actually used in this codebase's fact
-  * dictionaries (~40 of the 76 compnodes) plus the named "slot" wrappers (`Minuend`, `Left`, `When`, …).
+  * This table never gates a save. A composed tree is validated against the application's `FactDictionaryModule.rng` and
+  * `FactDictionary.fromXml` before it is written, so a too-permissive palette can only affect editor ergonomics. It
+  * covers the node types these dictionaries actually use rather than all of fact-graph's compnodes.
   *
-  * Crucially, this table is **not** the correctness authority — it never gates a save. A tree the author composes is
-  * validated against the real `FactDictionaryModule.rng` + `FactDictionary.fromXml` before it is written (see
-  * `AuthoringServer`), so an incomplete or slightly-too-permissive palette can only affect editor ergonomics, never
-  * produce invalid XML on disk.
+  * See docs/internals/author-mode.md.
   */
 object DerivedGrammar {
 
-  /** How the editor renders a node.
-    *   - `value` — a text-bearing leaf (edit its text); `valueKind` picks the input.
-    *   - `empty` — no text, no children (True/False).
-    *   - `dependency` — a `<Dependency>`: a fact-path dropdown, no children.
-    *   - `container` — has ordered children; `childTags` (if non-empty) suggests what to insert.
-    *   - `slot` — a named wrapper element that only appears inside a specific parent (Minuend, Left, When, …); rendered
-    *     as a labeled container, not offered in the top palette.
+  /** How the editor renders a node: `value` (text-bearing leaf), `empty`, `dependency` (fact-path dropdown),
+    * `container` (ordered children), or `slot` (a named wrapper valid only inside one parent).
     */
   final case class NodeSpec(
       tag: String,
@@ -32,13 +24,12 @@ object DerivedGrammar {
       valueKind: Option[String] = None, // dollar | int | rational | day | days | string | enum
       attrs: List[AttrSpec] = Nil,
       childTags: List[String] = Nil, // suggested insertable child tags ([] = any value node)
-      slotOnly: Boolean = false, // wrappers like Minuend/Left — not shown in the top-level palette
+      slotOnly: Boolean = false,
   )
 
   /** An attribute the editor must let the author set. `kind`: `text` | `factPath` | `optionsPath`. */
   final case class AttrSpec(name: String, label: String, kind: String)
 
-  // Value-producing nodes an author can drop into a slot / list / Then / Left / Right, etc.
   private val valueNodes: List[NodeSpec] = List(
     NodeSpec("Dependency", "Another fact's value", "dependency", attrs = List(AttrSpec("path", "Fact", "factPath"))),
     NodeSpec("Dollar", "Dollar amount", "value", valueKind = Some("dollar")),
@@ -58,7 +49,6 @@ object DerivedGrammar {
     NodeSpec("False", "Always false", "empty"),
   )
 
-  // Operators / calculations.
   private val operatorNodes: List[NodeSpec] = List(
     NodeSpec("Add", "Add (sum of…)", "container"),
     NodeSpec("Subtract", "Subtract", "container", childTags = List("Minuend", "Subtrahends")),
@@ -80,7 +70,6 @@ object DerivedGrammar {
     NodeSpec("Modulo", "Remainder (modulo)", "container"),
   )
 
-  // Logic / comparison.
   private val logicNodes: List[NodeSpec] = List(
     NodeSpec("Switch", "Choose by case", "container", childTags = List("Case")),
     NodeSpec("All", "All of… (AND)", "container"),
@@ -95,7 +84,6 @@ object DerivedGrammar {
     NodeSpec("IsComplete", "Is answered/complete", "container"),
   )
 
-  // Named-slot wrappers: containers that live only inside a specific parent. Not offered top-level.
   private val slotNodes: List[NodeSpec] = List(
     NodeSpec("Minuend", "Minuend (start value)", "slot", slotOnly = true),
     NodeSpec("Subtrahends", "Subtrahends (subtract these)", "slot", slotOnly = true),

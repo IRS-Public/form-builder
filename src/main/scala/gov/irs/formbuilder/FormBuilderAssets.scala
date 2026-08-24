@@ -8,59 +8,33 @@ import java.nio.file.Path as JavaPath
 import java.nio.file.StandardCopyOption
 import scala.jdk.CollectionConverters.*
 
-/** Anchor for the resource lookup in [[FormBuilderAssets]].
-  *
-  * A real, declared class of this library, for the reason `chromeLocaleContent` documents in Locale.scala: resource
-  * lookups anchored on a synthetic holder do not reach this jar's resources. An `object`'s own `getClass` would in fact
-  * work, but naming the anchor makes the requirement visible instead of incidental.
+/** Anchor for the resource lookup in [[FormBuilderAssets]]. A real declared class, because a lookup anchored on a
+  * synthetic holder does not reliably reach this jar's resources.
   */
 final private class FormBuilderAssetsAnchor
 
-/** The library's own browser assets, and the one mechanism that gets them out of this jar into a generated site.
+/** Extracts the library's browser assets, the theme stylesheets and the flow runtime, out of this jar into a generated
+  * site's `resources/vendor/form-builder/`.
   *
-  * Form Builder ships the general front-end interface every app renders with — the theme stylesheet (design tokens,
-  * page layout, and the styling of every element the generators emit) and the flow runtime (the custom elements a
-  * generated questionnaire actually runs on). Neither has anything to do with which app it is, and neither is optional:
-  * without them a generated site has no styling and no working questionnaire.
+  * They ship as classpath resources beside the templates that reference them, so a template and the asset it loads stay
+  * in one versioned artifact. Nothing edits them at runtime, which is why they do not take the from-disk path that
+  * flow, facts and app locales do. The consequence is that editing a stylesheet during an sbt `~run` session serves the
+  * previous copy. Run `sbt publishLocal` and restart the app.
   *
-  * They live on the classpath beside the templates that load them, so a template and the asset it references ship in
-  * one versioned artifact. They used to come from the `taxpert` npm package instead, which made the *workspace* — a
-  * thing an app can perfectly well ship without — a hard build dependency of every app.
-  *
-  * ==Why the classpath, when flow and facts are read from disk==
-  *
-  * [[FormBuilder.regenerate]] explains at length why flow, facts and an app's locales are read with `os.read`: Author
-  * Mode patches them on disk and re-runs the build in-process, which makes sbt's `~run` watcher rebuild
-  * `target/.../classes` underneath a running process. These assets are the documented exception, for the same reason
-  * the library's templates and base locales are — nothing edits them at runtime.
-  *
-  * The one consequence worth knowing: editing a stylesheet under `theme/styles/` inside `/form-builder/` *during* a
-  * `~run` session hits exactly the staleness that comment describes. Republish (`sbt publishLocal`) and restart the app
-  * rather than expecting a live reload.
+  * Two destination invariants, both pinned by `FormBuilderAssetsSpec` and explained in
+  * `docs/internals/app-entry-and-assets.md`: templates hardcode the matching URL because Thymeleaf cannot read a Scala
+  * constant, and the tree must not be flattened because the theme reaches USWDS icons through stylesheet-relative URLs.
   */
 object FormBuilderAssets {
 
-  /** Where these assets live on the classpath. */
   val resourceRoot = "/form-builder/website-static"
 
-  /** Where they land beneath a generated site's `resources/`.
-    *
-    * Spelled once here, but note that the templates loading these files hardcode the matching URL
-    * (`${basePath}/resources/vendor/form-builder/...`) — Thymeleaf cannot read a Scala constant. Changing this means
-    * grepping the templates for `vendor/form-builder`.
-    *
-    * `vendor/` rather than a directory of its own so the assets sit beside the app's other vendored packages, which is
-    * also what keeps the theme's stylesheet-relative icon URLs (`../../../../uswds-3.13.0/img/…`) resolving: four
-    * levels up from `vendor/form-builder/theme/styles/<dir>/` is `vendor/`, exactly as it was from
-    * `vendor/taxpert/theme/styles/<dir>/`. Do not flatten the tree.
-    */
+  /** Changing this means grepping the template tree for `vendor/form-builder`. */
   val vendorPath: Seq[String] = Seq("vendor", "form-builder")
 
-  /** Extract the library's assets into a generated site's `resources/` directory. */
   def extractInto(resourcesDir: os.Path): Unit =
     extractTo(vendorPath.foldLeft(resourcesDir)(_ / _))
 
-  /** As above, to an explicit destination. */
   def extractTo(target: os.Path): Unit = {
     val url = Option(classOf[FormBuilderAssetsAnchor].getResource(resourceRoot)).getOrElse {
       throw new IllegalStateException(
@@ -69,8 +43,7 @@ object FormBuilderAssets {
       )
     }
 
-    // Both branches are load-bearing. Running inside /form-builder (`sbt test`) the resources are loose files under
-    // target/.../classes, so the URL is a `file:`; an app consuming the published jar gets a `jar:`.
+    // `file:` inside this repo, `jar:` for an app consuming the published artifact. Both are reached.
     url.getProtocol match {
       case "file" => copyTree(java.nio.file.Paths.get(url.toURI), target)
       case "jar"  => withJarFileSystem(url.toURI)(fs => copyTree(fs.getPath(resourceRoot), target))
@@ -79,11 +52,8 @@ object FormBuilderAssets {
     }
   }
 
-  /** Run `body` against the filesystem of the jar `uri` points into.
-    *
-    * A jar's `FileSystem` is a JVM-wide singleton keyed on the jar, so opening one that is already open throws rather
-    * than returning it. Close only the one we opened: Author Mode re-runs this whole pipeline in-process, and closing a
-    * filesystem another caller still holds would break them rather than us.
+  /** A jar's `FileSystem` is a JVM-wide singleton, so opening an already-open one throws. Close only the one this call
+    * opened, since Author Mode re-runs the pipeline in-process and another caller may still hold it.
     */
   private def withJarFileSystem[A](uri: java.net.URI)(body: FileSystem => A): A = {
     val opened =
@@ -103,12 +73,9 @@ object FormBuilderAssets {
     val entries = Files.walk(source)
     try
       entries.iterator().asScala.foreach { entry =>
-        // Rebuild the path segment by segment rather than splitting a string: `entry` may belong to a jar
-        // filesystem, whose paths cannot be resolved against an os.Path (a default-filesystem type) directly, and
-        // whose separator is not necessarily the host's.
-        //
-        // The empty-segment filter is not defensive: `Files.walk` yields `source` itself first, and an empty
-        // relative path iterates as a single empty name, which os-lib rejects as a path segment.
+        // Segment by segment, because a jar filesystem's paths do not resolve against an os.Path and its
+        // separator is not necessarily the host's. The empty filter is required rather than defensive:
+        // `Files.walk` yields `source` first, and an empty relative path iterates as one empty name.
         val segments = source.relativize(entry).iterator().asScala.map(_.toString).filter(_.nonEmpty)
         val destination = segments.foldLeft(target)(_ / _)
         if (Files.isDirectory(entry)) os.makeDir.all(destination)

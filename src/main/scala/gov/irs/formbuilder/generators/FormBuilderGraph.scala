@@ -1,3 +1,9 @@
+// Emits the Form Graph Model, the JSON Fact Explorer renders as an interactive graph.
+//
+// Reads the resolved flow XML rather than the parsed FlowNode tree, because each element's own source
+// XML is part of the output and the parsed nodes do not retain it. The shape is a contract with the
+// consumer's validator. Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.generators
 
 import gov.irs.formbuilder.parser.Flow
@@ -7,50 +13,14 @@ import scala.xml.Elem
 import scala.xml.Node
 import scala.xml.NodeSeq
 
-/** Emits the **Form Graph Model** — the JSON Fact Explorer renders as an interactive graph.
+/** Four slices: `flowPages`, `flowElements`, `facts` and `edges`.
   *
-  * Four slices, and one contract:
-  *   - `flowPages` — one per rendered page (route, title, source module, the ids of its elements)
-  *   - `flowElements` — every `fg-*` element, with the fact it binds, the condition that gates it, and its own source
-  *     XML for the explain popup
-  *   - `facts` — every `<Fact>` in the dictionary, writable or derived, with its resolved dependency paths
-  *   - `edges` — typed, cross-layer: `sequential`, `binds`, `gates`, `knocks-out`, `displays`, `depends`
-  *
-  * The consumer validates this shape (`fact-explorer/src/model/fgm.js`), so a change here is a change to a contract two
-  * repos share. In particular `flowTags` is the *declared* extension point: an app that registers its own node types
-  * via [[FormBuilderApp.nodeTypes]] has them listed there, and Fact Explorer accepts exactly those and no others — an
-  * undeclared tag is still an error on both sides, which is what makes a typo'd tag findable.
-  *
-  * ==Why this reads XML rather than the parsed Flow==
-  *
-  * It takes both. `flowPages` comes from the parsed [[Flow]], which already knows each page's route, title key and
-  * module. The *elements* are walked out of the resolved flow XML instead, because the parsed `FlowNode` case classes
-  * do not retain their source `Elem` — and `rawXml` is the whole point of the explain popup. Adding a `sourceXml` field
-  * to every node type would break the `FlowNodeParser` SPI that apps extend (TWE registers one), so this stays a pure
-  * reader: it cannot regress site generation, and an app's custom element is handled by the same generic branch that
-  * handles anything else this library has never heard of.
-  *
-  * ==Not yet at parity with the Node generator — do not switch apps over by default==
-  *
-  * Against tax-withholding-estimator this agrees with `fact-explorer/scripts/make-static-fgm.mjs` exactly on
-  * `flowPages` (7), `flowElements` (157) and `facts` (1010), and on the `gates` edges. It does **not** yet emit three
-  * things that generator does:
-  *
-  *   - `shows` edges, from the `<fg-show path="…"/>` references inside question and heading text
-  *   - `exits` edges
-  *   - the `displays` edges that come from those same `fg-show` paths (3 here versus 81)
-  *
-  * so its `depends` count also runs lower. Until those land, an app should reach this through its own
-  * `make fact-explorer` target rather than through `make dev` — `load.js` prefers this file over the Node output
-  * wherever it is served, so building with `--formBuilderGraph` by default would quietly hand Fact Explorer the sparser
-  * graph. That preference is still the right long-term order (this comes from the parser that actually builds the
-  * site); the gap is the reason the consumer's `overlay` mode exists.
+  * `flowTags` declares exactly the node types the application registered. The consumer accepts those and no others, so
+  * a misspelled tag is an error on both sides rather than a dropped element.
   */
 object FormBuilderGraph {
 
-  /** Elements the scaffold knows how to read in detail. Anything else that an app registered is emitted through the
-    * generic branch and declared in `flowTags`.
-    */
+  /** An application-registered tag goes through the generic branch instead, and into `flowTags`. */
   private val BuiltInTags = Set("fg-set", "fg-alert", "fg-collection", "fg-detail")
 
   private val GenericAttrs = Set("path", "condition", "operator", "if-true", "if-false")
@@ -60,7 +30,6 @@ object FormBuilderGraph {
   private def attr(n: Node, name: String): Option[String] =
     n.attribute(name).map(_.text).filter(_.nonEmpty)
 
-  /** Serialize one element without its children's whitespace exploding — the popup renders this verbatim. */
   private def rawXml(n: Node): String = n.toString
 
   private def factId(path: String): String = s"fact:$path"
@@ -71,7 +40,7 @@ object FormBuilderGraph {
   private def factBasename(path: Option[String]): String =
     path.map(_.split("/").filter(_.nonEmpty).lastOption.getOrElse("fact")).getOrElse("node")
 
-  /** `/a/b` + `../c` → `/a/c`. The one algorithm shared with the Node generator. */
+  /** `/a/b` plus `../c` gives `/a/c`. */
   private[generators] def resolveDependencyPath(raw: String, factPath: String): String =
     if (raw.startsWith("/")) raw
     else {
@@ -84,18 +53,10 @@ object FormBuilderGraph {
       "/" + base.mkString("/")
     }
 
-  // ---------------------------------------------------------------------------------------------
-  // Facts
-  // ---------------------------------------------------------------------------------------------
-
   private case class FactNode(path: String, json: Json, deps: List[String], rootOp: Option[String])
 
-  /** Every `<Fact>` in the merged dictionary, **last definition per path wins**.
-    *
-    * The de-duplication is not a nicety. A real dictionary defines the same path more than once on purpose — an app
-    * with `constants.xml` alongside `constants2025.xml` redefines each constant per tax year, and the loader resolves
-    * that by order. Without this the graph carries two nodes with the same `fact:/…` id, which the consumer's
-    * `validate()` rejects outright as a duplicate node id.
+  /** Last definition per path wins. Dictionaries redefine a path on purpose, one constants file per tax year, and
+    * emitting both would give two nodes the same `fact:/…` id.
     */
   private def factsFrom(dictionaryXml: Elem, app: FormBuilderApp): List[FactNode] = {
     val all = (dictionaryXml \\ "Fact").toList.flatMap { fact =>
@@ -104,7 +65,6 @@ object FormBuilderGraph {
         val writable = (fact \ "Writable").headOption
         val kind = if (derived.isDefined) "derived" else "writable"
 
-        // The type is the first element under Writable, or the root operation under Derived.
         val rootOp = derived.flatMap(d => (d \ "_").headOption.map(_.label))
         val typeNode = writable.flatMap(w => (w \ "_").headOption.map(_.label)).orElse(rootOp)
 
@@ -132,18 +92,13 @@ object FormBuilderGraph {
         FactNode(path, json, deps.map(_._2), rootOp)
       }
     }
-    // Keep the last definition of each path, but in first-seen order so the output is stable.
+    // First-seen order, so the output is stable.
     val lastByPath = all.groupBy(_.path).view.mapValues(_.last).toMap
     all.map(_.path).distinct.map(lastByPath)
   }
 
-  // ---------------------------------------------------------------------------------------------
-  // Flow
-  // ---------------------------------------------------------------------------------------------
-
   private case class ElementNode(id: String, json: Json, tag: String, factPath: Option[String])
 
-  /** Walk one page's XML, emitting an element per recognised tag and recursing into everything else. */
   private def walkPage(
       pageXml: Node,
       pageId: String,
@@ -235,8 +190,7 @@ object FormBuilderGraph {
           List("headingText" -> optStr(heading)),
         )
       case _ =>
-        // An app-registered node type. Read only the vocabulary every flow node shares and keep the
-        // rest verbatim — better a labelled box with its real XML behind it than a dropped element.
+        // Read the attributes every flow node shares and keep the rest verbatim.
         val attrs = el.attributes.asAttrMap.filterNot { case (k, _) => GenericAttrs.contains(k) }
         (
           unique(s"$prefix:$tag:${factBasename(path)}"),
@@ -265,10 +219,6 @@ object FormBuilderGraph {
     ElementNode(id, Json.obj((base ++ extra)*), tag, path)
   }
 
-  // ---------------------------------------------------------------------------------------------
-  // Edges
-  // ---------------------------------------------------------------------------------------------
-
   private class EdgeBuilder {
     private var n = 0
     private val acc = scala.collection.mutable.ListBuffer.empty[Json]
@@ -287,20 +237,8 @@ object FormBuilderGraph {
     def result: List[Json] = acc.toList
   }
 
-  // ---------------------------------------------------------------------------------------------
-  // Entry point
-  // ---------------------------------------------------------------------------------------------
-
-  /** Build the graph.
-    *
-    * Takes everything as arguments and reads no disk, so a spec can hand it inline XML the way `WebsiteSpec` does.
-    *
-    * @param flowConfig
-    *   the resolved flow XML (`FormBuilder.resolvedFlowConfig`) — the source of every element and its `rawXml`
-    * @param dictionaryXml
-    *   the merged fact dictionary
-    * @param flow
-    *   the parsed flow — the source of page routes, titles and module grouping
+  /** Reads no disk, so a spec can hand it inline XML. `flowConfig` is the source of every element and its `rawXml`;
+    * `flow` is the source of page routes, title keys and module grouping.
     */
   def buildJson(flowConfig: Elem, dictionaryXml: Elem, flow: Flow, app: FormBuilderApp): Json = {
     val facts = factsFrom(dictionaryXml, app)
@@ -310,7 +248,6 @@ object FormBuilderGraph {
     val used = scala.collection.mutable.Set.empty[String]
     val pageXmlByRoute = (flowConfig \ "page").map(p => (p \@ "route") -> p).toMap
 
-    // Pages come from the parsed flow (routes, titles, module); elements from that page's XML.
     val pageJson = scala.collection.mutable.ListBuffer.empty[Json]
     val elementJson = scala.collection.mutable.ListBuffer.empty[Json]
     var previousPageLastId: Option[String] = None
@@ -330,10 +267,8 @@ object FormBuilderGraph {
       elements.foreach { el =>
         elementJson.append(el.json)
 
-        // binds: the element ↔ the fact it writes or reads.
         el.factPath.filter(factPaths.contains).foreach(p => edges.add("binds", el.id, factId(p)))
 
-        // gates / knocks-out / displays: the condition an element depends on.
         val elGate = el.json.hcursor.downField("gate").downField("factPath").as[String].toOption
         elGate.filter(factPaths.contains).foreach(p => edges.add("gates", el.id, factId(p)))
 
@@ -345,7 +280,7 @@ object FormBuilderGraph {
         }
       }
 
-      // sequential: page order, chained through each page's first element.
+      // Page order is chained through each page's first element.
       elements.headOption.foreach { first =>
         previousPageLastId.foreach(prev => edges.add("sequential", prev, first.id))
       }
@@ -366,7 +301,6 @@ object FormBuilderGraph {
       )
     }
 
-    // depends: fact → fact, via the source fact's root operation.
     facts.foreach { f =>
       f.deps.filter(factPaths.contains).foreach { dep =>
         f.rootOp match {
@@ -379,7 +313,6 @@ object FormBuilderGraph {
     Json.obj(
       "version" -> str("1.0-scala"),
       "generatedAt" -> str(java.time.Instant.now().toString),
-      // Declared, not open — see the note on this object. Exactly the node types this app registered.
       "flowTags" -> Json.fromValues(app.nodeTypes.keySet.toList.sorted.map(str)),
       "flowPages" -> Json.fromValues(pageJson.toList),
       "flowElements" -> Json.fromValues(elementJson.toList),

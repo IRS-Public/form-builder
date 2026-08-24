@@ -1,3 +1,11 @@
+// Builds the dotted keys the generated flow locale file is keyed by, and collects the authored
+// text under them as the parser walks. Every context in one parse shares a single mutable map, and
+// an instance is a path into that map plus the counters used to name unnamed children.
+//
+// KEYS MUST STAY STABLE BETWEEN BUILDS. The translated locale files are keyed by them, and
+// syncTranslationLocales drops any key that no longer exists, discarding its translations.
+// Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.parser
 
 import java.nio.charset.StandardCharsets
@@ -9,7 +17,6 @@ case class TranslationContext(
     translationContext: List[String] = List.empty,
     tagCounts: mutable.Map[String, Int] = mutable.Map.empty,
 ) {
-  // This should be used minimally. If we have lots of duplicate content, something is awry
   def forChildWithoutUniqueId(label: String): TranslationContext = {
     val childKey = nextChildKey(label)
     val currentMap = translationMap.getMap(translationContext)
@@ -39,7 +46,7 @@ case class TranslationContext(
   def getHashKey(label: String, content: String): String = {
     val digest = MessageDigest.getInstance("MD5")
     val hexString = digest.digest(content.getBytes(StandardCharsets.UTF_8)).map("%02x".format(_)).mkString
-    // We can use the entire hexKey if are okay with longer keys and want to avoid unintentional duplicate keys
+    // updateValue raises on a collision, and the fix is to lengthen this truncation.
     s"$label-${hexString.take(6)}"
   }
 

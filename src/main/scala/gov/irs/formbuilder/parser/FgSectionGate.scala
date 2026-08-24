@@ -1,3 +1,8 @@
+// `<fg-section-gate>`: a pending/complete banner keyed off a condition.
+//
+// NOT WIRED UP. This tag is absent from FlowNodeTypes.builtIn and nothing calls FgSectionGate.parse,
+// so a flow that authors one falls through to Html. Either register it or delete it.
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.formbuilder.FormBuilderTemplateEngine

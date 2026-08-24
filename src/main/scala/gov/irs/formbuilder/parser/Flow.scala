@@ -1,3 +1,7 @@
+// The parsed flow: the pages under <FlowConfig>, plus the TranslationContext they filled in while
+// parsing. Called by FormBuilder.regenerate after <module> includes are resolved.
+// Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.factgraph.FactDictionary
@@ -21,7 +25,6 @@ object Flow {
     val flowParser = FlowParser(factDictionary, app)
     val rootContext = TranslationContext()
 
-    // FlowConfig is expected to have only `page` child elements relevant to parsing
     val pages = (flowConfig \ "page").collect { case pageElement: Elem =>
       Page.fromXml(pageElement, flowParser, rootContext)
     }.toList

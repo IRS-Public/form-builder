@@ -1,15 +1,11 @@
+// Single-question-per-screen navigation: the show and hide that would happen inside a page happens
+// between pages instead.
+//
+// Reads resources/flow-manifest.json, which only `--singleQuestionPerScreen` emits, and no-ops
+// without it. See docs/internals/flow-runtime.md.
+
 import { checkCondition } from './fg-conditions.js'
 import { appBasePath, resourceUrl } from './runtime-paths.js'
-
-// === Single-question-per-screen navigation =======================================
-//
-// When flow-manifest.json is present (build flag --singleQuestionPerScreen), each page hosts a
-// single question and conditional show/hide that used to happen inline now happens between
-// pages. We walk the manifest on Next/Prev to skip pages whose gate is false against the live
-// Fact Graph, and on load we redirect off pages whose gate has become false (e.g., the user
-// changed an earlier answer that invalidated the current page).
-//
-// If the manifest is absent (multi-question mode), this code no-ops.
 
 async function loadFlowManifest () {
   try {
@@ -26,14 +22,7 @@ function stripAppPrefix (pathname) {
   return prefix && pathname.startsWith(prefix) ? pathname.slice(prefix.length) : pathname
 }
 
-/**
- * The locale segment in the current URL, or '' on an English page.
- *
- * Read off `<html lang>` rather than matched against a list of locale codes. The list was one
- * host's seven translations, which is both host identity and a second place to remember to edit;
- * the generator already stamps the page's own language into the document, and a page is served
- * under a locale segment exactly when that language is not the default one.
- */
+/** Read off `<html lang>`, which the generator already stamps, rather than matched against a list. */
 function detectLocaleSegment (pathAfterApp) {
   const lang = document.documentElement.lang
   if (!lang || lang === 'en') return ''
@@ -104,8 +93,7 @@ export async function initSingleQuestionNav () {
   const currentIdx = manifest.findIndex(p => p.route === currentRoute)
   const currentEntry = currentIdx >= 0 ? manifest.at(currentIdx) : null
   if (currentEntry && !pageGateLive(currentEntry)) {
-    // Current page's gate is false — bounce forward to the first live page rather than show a
-    // question that should be skipped given current answers.
+    // This page should be skipped given the current answers, so bounce forward to the first live one.
     const nextIdx = findLive(manifest, currentIdx, 1)
     const nextEntry = nextIdx >= 0 ? manifest.at(nextIdx) : null
     if (nextEntry) {

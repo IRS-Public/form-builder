@@ -1,22 +1,9 @@
-// Fact Explorer live-sync bridge, relocated out of credit-assistant's core fg-fact-graph.js.
+// Live-sync bridge between a questionnaire and a same-origin Fact Explorer embedding it.
 //
-// When a Form Builder app's questionnaire is embedded same-origin in Fact Explorer (via its Vite
-// proxy), the two surfaces share the serialized fact graph over a BroadcastChannel: publishing here
-// lets Fact Explorer's scenario overlay update live as the user answers questions, and inbound
-// messages let a scenario loaded in Fact Explorer rehydrate the questionnaire.
-//
-// It sits in the flow runtime rather than the audit panel because a flow publishing its own
-// serialized graph is a runtime concern, not a tool one — nothing here reads or draws a panel. As the
-// audit panel's, it was the single import that made the runtime depend on the workspace, which is
-// what kept the workspace from being optional.
-//
-// HARD COMPATIBILITY CONSTRAINT: the channel name `taxpert:factGraph` and the message shape
-// `{ type: 'factGraph', graph: <string> }` must stay byte-for-byte identical —
-// fact-explorer/src/model/bridge.js implements the other side of this exact protocol. The
-// `taxpert:` prefix therefore stays even though this module no longer belongs to the workspace:
-// renaming the channel would break Fact Explorer silently, with no error on either side.
-//
-// Feature-detected so it no-ops (and stays node-testable) where BroadcastChannel is unavailable.
+// WIRE PROTOCOL, DO NOT CHANGE: the channel name `taxpert:factGraph` and the message shape
+// `{ type: 'factGraph', graph: <string> }` are implemented on the other side by
+// fact-explorer/src/model/bridge.js. Renaming either breaks the sync silently, with no error on
+// either end. See docs/internals/flow-runtime.md.
 
 const DEFAULT_CHANNEL_NAME = 'taxpert:factGraph'
 
@@ -30,8 +17,7 @@ const DEFAULT_CHANNEL_NAME = 'taxpert:factGraph'
  */
 export function createFactGraphBridge ({ channelName = DEFAULT_CHANNEL_NAME, onRemoteGraph } = {}) {
   let channel = null
-  // The last graph seen on the wire (published or received), so we ignore the echo of a graph we
-  // just published and don't re-broadcast a graph we just received.
+  // The last graph seen on the wire, in either direction, so an echo is not reprocessed.
   let lastSynced = null
 
   try {
@@ -40,7 +26,7 @@ export function createFactGraphBridge ({ channelName = DEFAULT_CHANNEL_NAME, onR
       channel.addEventListener('message', (ev) => {
         const data = ev?.data
         if (!data || data.type !== 'factGraph' || typeof data.graph !== 'string') return
-        if (data.graph === lastSynced) return // ignore our own echo / no-op if unchanged
+        if (data.graph === lastSynced) return
         lastSynced = data.graph
         onRemoteGraph?.(data.graph)
       })

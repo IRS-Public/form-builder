@@ -1,3 +1,5 @@
+// `<section>`: a grouping wrapper with no behaviour of its own, rendered through nodes/section.html.
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.formbuilder.FormBuilderTemplateEngine

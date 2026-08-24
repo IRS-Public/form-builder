@@ -5,19 +5,9 @@ import gov.irs.formbuilder.FormBuilderApp
 import io.circe.syntax.*
 import io.circe.Json
 
-/** Emits a JSON manifest used by client-side navigation in single-question-per-screen mode.
-  *
-  * Each entry describes one rendered page:
-  *   - route: the static URL path (e.g. "/about-you/chosen-tax-year")
-  *   - href: the full URL the browser navigates to (locale-aware)
-  *   - gatePath / gateOperator: the gating condition for this page (the lone question's condition). Null when the page
-  *     has no condition (e.g., the first question).
-  *   - knockoutPaths: condition paths of any visible knockout alerts on this page; navigation evaluates them on every
-  *     Next click to decide whether to block.
-  *   - sourceRoute: the original (pre-explode) page route, used for topic-grouped stepper math.
-  *   - exclude: whether the page is excluded from the stepper.
-  *
-  * The JS reads this once per session from `{basePath}/resources/flow-manifest.json`.
+/** The JSON array fg-navigator.js reads from `{basePath}/resources/flow-manifest.json` under
+  * `--singleQuestionPerScreen`, one entry per rendered page. The field list is in
+  * docs/internals/flow-parsing-and-generation.md.
   */
 object FlowManifest {
   def buildJson(flow: Flow, languageCode: String, app: FormBuilderApp): Json =

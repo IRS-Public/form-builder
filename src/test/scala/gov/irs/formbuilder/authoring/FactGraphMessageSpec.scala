@@ -3,10 +3,9 @@ package gov.irs.formbuilder.authoring
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
-/** Author Mode surfaces fact-graph config errors inline while a calculation is mid-edit (e.g. a `<Subtrahends>` slot
-  * momentarily emptied to swap operands). The raw exception message tacks the offending node's entire
-  * `CompNodeConfig(…)` toString onto the human sentence, which — as one unbroken token — floods the inline error box.
-  * `factGraphMessage` must strip that dump and keep only the readable sentence.
+/** `FactDictionary` validation appends the offending node's whole `CompNodeConfig(…)` toString after its human
+  * sentence. As one unbroken token it floods Author Mode's inline error box during ordinary mid-edit states, so
+  * `factGraphMessage` must keep only the sentence. See docs/internals/author-mode.md.
   */
 class FactGraphMessageSpec extends AnyFunSpec with Matchers {
 

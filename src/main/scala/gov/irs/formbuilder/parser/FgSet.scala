@@ -1,3 +1,10 @@
+// `<fg-set>`: one question, binding a fact path to an input.
+//
+// Two things come from the dictionary rather than the flow. Optionality is the presence of a
+// <Placeholder> on the fact, and expectedNodeType is checked against the fact's type here rather
+// than inside each input, so a registered input type gets the same check as a built-in one.
+// Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.factgraph.Path
@@ -10,13 +17,7 @@ import scala.xml.Elem
 
 case class ThymeleafOption(name: String, value: String, description: String)
 
-/** A `<hint>` or `<modal-link>`, minus its text.
-  *
-  * The text is not here on purpose: it goes into the translation context under `{contentKey}.hint`, and the template
-  * reads it back through `#{...}` so the translated string wins. What is left is the optional condition that decides
-  * whether the hint is on screen at all, handed to the browser as `condition`/`operator` attributes for the same
-  * runtime machinery every other conditional element uses.
-  */
+/** A `<hint>` or `<modal-link>`, minus its text, which the template reads back through `#{...}`. */
 case class Hint(conditionPath: String, conditionOperator: String)
 case class ModalLink(conditionPath: String, conditionOperator: String)
 
@@ -62,8 +63,7 @@ case class FgSet(
         context.setVariable("options", javaOptions.asJava)
         context.setVariable("optionsPath", optionsPath)
       case Input.custom(_, _, templateVariables, _, _) =>
-        // Whatever the registered parser chose to hand its own template. Typed, not stringified, so a template can
-        // do arithmetic on a number the same way it can for a built-in input.
+        // Values pass through with their Scala types intact, so a custom template can do arithmetic on a number.
         templateVariables.foreach { case (name, value) => context.setVariable(name, value) }
       case Input.boolean(_, options) =>
         if (options.nonEmpty) {
@@ -104,13 +104,11 @@ object FgSet extends FlowNodeParser {
 
     val input = Input.extractFromFgSet(fgSetElement, isOptional, factDictionary, flowParser.app)
     val typeNode = factDictionary.getDefinition(path).typeNode
-    // Each input knows the Fact Graph node type it binds to, so a registered input type gets the same check as a
-    // built-in one — and one that binds to nothing says so rather than being unrepresentable.
     if (input.expectedNodeType.exists(_ != typeNode)) {
       throw InvalidFormConfig(s"Path $path must be of type $input")
     }
 
-    // Use .child.mkString instead of .text to preserve XML tags (e.g., <span>, <fg-show>) in mixed content
+    // .child.mkString rather than .text, to preserve markup in mixed content.
     val question = (fgSetElement \ "question").head.child.mkString.strip
     if (question.isEmpty) {
       throw InvalidFormConfig(s"fg-set at path: $path has an empty question tag. This is required.")
@@ -121,9 +119,6 @@ object FgSet extends FlowNodeParser {
     val translationContext = parentTranslationContext.forChildWithId(path)
     translationContext.updateValue("question", question)
 
-    /** Read an optional `condition`/`operator` pair off an element, the same way [[Condition]] does for the elements
-      * that carry one as a first-class attribute.
-      */
     def conditionOf(node: xml.Node): Option[Condition] = {
       val conditionPath = node \@ "condition"
       val conditionOperator = node \@ "operator"
@@ -132,8 +127,6 @@ object FgSet extends FlowNodeParser {
       )
     }
 
-    // Both texts go into the translation context and are read back through `#{...}` by the template, so a hint is
-    // translated like everything else. What survives on the node is only the condition.
     val hint = (fgSetElement \ "hint").headOption.map { node =>
       translationContext.updateValue("hint", node.child.mkString.strip)
       val hintCondition = conditionOf(node)

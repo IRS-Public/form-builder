@@ -12,8 +12,11 @@ import scala.xml.NodeBuffer
 
 /** The scaffold's entry point. An app's `main` is one line: `FormBuilder.run(app, args)`.
   *
-  * Parses the build flags, generates the site, and — under the right flags — starts the Author Mode API and the dev
-  * server. Everything it needs to know about the application arrives in [[FormBuilderApp]].
+  * Parses the build flags, generates the site, and under the right flags starts the Author Mode API and the dev server.
+  * Everything it needs to know about the application arrives in [[FormBuilderApp]].
+  *
+  * Flow, facts and the app's locales are read from disk rather than the classpath, because Author Mode rewrites them at
+  * runtime. Long-form: `docs/internals/app-entry-and-assets.md`.
   */
 object FormBuilder {
   private val flagRegex = new Regex("""--(\w*)""")
@@ -27,21 +30,10 @@ object FormBuilder {
       },
     )
 
-    // Parse the flow + fact dictionary from resources and (re)generate the default-language flow
-    // locale file and the static site under ./out. Extracted so the Author Mode save endpoint can
-    // re-run the exact same pipeline in-process after writing edited XML to disk.
     val outDir = regenerate(app, flags)
 
-    // Start the embedded Author Mode authoring backend only under --authorMode (via `make dev-author`).
-    // It binds its own host/port (`-Dsmol.author.host`/`-Dsmol.author.port`, default localhost/3004),
-    // separate from smol, and is never started in production. It re-invokes `regenerate` in-process
-    // after each save.
-    //
-    // The host defaults to "localhost" (loopback-only — this API can patch source XML and commit to
-    // git, so it must not be reachable off-box). A docker-compose dev overlay may override it to
-    // "0.0.0.0" for a watch container: binding to loopback *inside* a container is invisible to
-    // Docker's port-publishing NAT, so it must listen on all interfaces and rely on the host-side
-    // port mapping (`127.0.0.1:3004:3004`) for the loopback-only guarantee instead.
+    // Loopback by default, because this API patches source XML on disk. A container overlay setting
+    // `-Dsmol.author.host=0.0.0.0` relies on a host-side `127.0.0.1:3004:3004` mapping instead.
     if flags.contains(Flags.authorMode) then {
       val authorHost = sys.props.get("smol.author.host").getOrElse("localhost")
       val authorPort = sys.props
@@ -55,7 +47,7 @@ object FormBuilder {
       }
     }
 
-    if !flags.contains(Flags.serve) then return // Only start smol if 'serve' flag is set
+    if !flags.contains(Flags.serve) then return
 
     val host = "localhost"
     val port = sys.props
@@ -71,8 +63,7 @@ object FormBuilder {
     val bold = "\u001b[1m"
     val reset = "\u001b[0m"
 
-    // Start server in-process, but do not block.
-    // If it's already running from a previous ~run cycle, starting again will throw BindException - ignore and continue.
+    // In-process and non-blocking. A BindException here means a previous `~run` cycle's server is still bound.
     try
       val server = smol.Smol.start(config)
       sys.addShutdownHook(server.stop(0))
@@ -84,56 +75,26 @@ object FormBuilder {
         println(s"  ${bold}Local:${reset}   ${cyan}${url}${reset}\n")
   }
 
-  /** Re-parse the Flow + Fact Dictionary XML from resources, regenerate the auto-generated flow locale file, render the
-    * static site with [[Website.generate]], and save it under `./out`.
-    *
-    * This is the whole read-side build pipeline, extracted from `run` so it can be invoked both at startup and
-    * in-process afterward (e.g. by the Author Mode save endpoint, once it has written edited XML back to the resources
-    * on disk). It re-reads all inputs from disk on every call, so callers only need to have persisted their edits
-    * first.
-    *
-    * ==Why disk and not the classpath==
-    *
-    * Flow, facts and the app's locales are read with `os.read` against the source tree, never `Source.fromResource`.
-    * Author Mode patches those files on disk and calls this again in-process, which makes sbt's `~run` watcher rebuild
-    * `target/.../classes` underneath us; the classpath copy is either stale or transiently missing. Only the
-    * *library's* own templates and base locales come off the classpath, because nothing edits those at runtime.
-    *
-    * @return
-    *   the `./out` directory the site was saved under (the root the `smol` static server serves).
-    */
-  /** Read `flow/index.xml`, splice in every module it names, and parse the result against the app's fact dictionary.
-    *
-    * The first half of [[regenerate]], lifted out because a test wants it on its own: parsing is where a mistyped
-    * `path=` is caught, and every app should assert that its flow parses. Before this existed each app's spec
-    * re-implemented module resolution against `Source.fromResource`, which is both a copy of logic that lives here and
-    * a subtly different one — the classpath copy, not the file on disk.
-    */
+  /** Public so an app's spec can assert that its flow parses, which is where a mistyped `path=` is caught. */
   def parseFlow(app: FormBuilderApp): Flow = parseFlow(app, loadFactDictionary(app))
 
-  /** As above, against a dictionary the caller has already loaded — [[regenerate]] needs the same one for the site it
-    * then generates, and loading it twice is the most expensive thing this file could do by accident.
+  /** Against a dictionary the caller already loaded. Loading it twice is the most expensive thing this file could do by
+    * accident.
     */
   def parseFlow(app: FormBuilderApp, dictionary: LoadedFactDictionary): Flow = {
     given FormBuilderApp = app
     Flow.fromXmlConfig(resolvedFlowConfig(app), dictionary.factDictionary, app)
   }
 
-  /** `flow/index.xml` with every `<module src="…"/>` spliced in — the XML the flow is parsed from.
-    *
-    * Lifted out of [[parseFlow]] because a second reader wants it: [[generators.FormBuilderGraph]] emits a node per
-    * flow element carrying that element's own source XML, and the parsed `FlowNode` case classes have thrown their
-    * `Elem` away by then. Re-reading here is additive — it cannot regress site generation the way threading a
-    * `sourceXml` field through every node type and every app-registered `FlowNodeParser` could.
+  /** `flow/index.xml` with every `<module src="…"/>` spliced in. Also read by [[generators.FormBuilderGraph]], which
+    * needs each element's source XML after the parsed `FlowNode` case classes have discarded their `Elem`.
     */
   def resolvedFlowConfig(app: FormBuilderApp): xml.Elem = {
-    // Get flow root
     val flowFile = os.read(app.flowDir / "index.xml")
     val flowConfig = xml.XML.loadString(flowFile)
     val children = flowConfig \\ "FlowConfig" \ "_"
 
-    // Resolve modules
-    // Note that modules can only appear in the top level
+    // Modules are only recognized at the top level.
     val resolvedChildren = children.map(child =>
       child.label match {
         case "module" => resolveModule(app, child)
@@ -144,6 +105,10 @@ object FormBuilder {
     <FlowConfig>{resolvedChildren}</FlowConfig>
   }
 
+  /** The whole read-side build. Separate from [[run]] because the Author Mode save endpoint calls it again in-process
+    * after writing edited XML. Every input is re-read on each call, so a caller only has to have persisted its edits
+    * first. Returns the `./out` root `smol` serves.
+    */
   def regenerate(app: FormBuilderApp, flags: Map[String, Boolean]): os.Path = {
     given FormBuilderApp = app
 
@@ -155,9 +120,7 @@ object FormBuilder {
       else parsedFlow
     generateFlowLocaleFile(flow.translationContext.translationMap, app)
 
-    // The Form Graph Model describes the *authored* flow, so it is built from `parsedFlow` and
-    // not from `flow` — the latter has already been exploded into one question per page under
-    // --singleQuestionPerScreen, and the graph should not change shape with an unrelated flag.
+    // Built from `parsedFlow` so the graph keeps the authored shape under --singleQuestionPerScreen.
     val formBuilderGraphJson = Option.when(flags.contains(Flags.formBuilderGraph)) {
       io.circe.Printer.spaces2.print(
         generators.FormBuilderGraph.buildJson(
@@ -171,7 +134,7 @@ object FormBuilder {
 
     val site = Website.generate(flow, loadedDictionary.xml, flags, formBuilderGraphJson)
 
-    // Delete out/ directory and add files to it
+    // `site.save` removes `target` before writing it.
     val outDir = os.pwd / "out"
     var target = outDir
     app.outSubdir.split("/").filter(_.nonEmpty).foreach(segment => target = target / segment)
@@ -181,8 +144,7 @@ object FormBuilder {
 
   def resolveModule(app: FormBuilderApp, node: xml.Node): xml.NodeSeq = {
     val src = node \@ "src"
-    // Remove the ./ prefix in the src attribute
-    // We support this so that people can use local file path resolution in their text editors
+    // A leading ./ is stripped so authors can write a path their editor can follow.
     val resolvedSrc = src.replaceAll("^\\./", "")
     val moduleFile = os.read(app.flowDir / resolvedSrc)
 
@@ -191,11 +153,7 @@ object FormBuilder {
       throw InvalidFormConfig(s"Module file $src does not have a top-level FlowConfig")
     }
 
-    // Splicing loses the one thing only this function knows: which file a page came from. Stamp it
-    // on the way through, so a listing that groups pages by module (Browse All) does not have to
-    // guess the module from the route. Guessing worked only for an app whose routes repeat the
-    // module name — the second app's are `/income`, `/credits`, `/`, and the last of those has no
-    // segment to guess from at all.
+    // The last point at which a page's source file is known, and Browse All groups pages by module.
     val moduleSlug = resolvedSrc.split("/").last.stripSuffix(".xml")
     flowConfigModule \ "_" map {
       case page: xml.Elem if page.label == "page" && (page \@ "module").isEmpty =>

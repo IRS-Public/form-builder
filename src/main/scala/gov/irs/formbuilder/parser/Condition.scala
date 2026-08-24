@@ -1,3 +1,10 @@
+// Turns an element's `if-true` / `if-false` attributes into a (path, operator) pair, checking that
+// the named fact exists and is Boolean.
+//
+// ConditionOperator's case names reach the browser verbatim as `operator="..."`, so they are part of
+// the runtime contract. Renaming one means changing fg-conditions.js in the same commit.
+// Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.factgraph.FactDictionary
@@ -5,7 +12,6 @@ import gov.irs.formbuilder.exceptions.InvalidFormConfig
 import gov.irs.formbuilder.parser.Utils.optionString
 import gov.irs.formbuilder.parser.Utils.validateFact
 
-// Building this out in anticipation that we will add other types of conditions, such as isComplete
 enum ConditionOperator {
   case isTrue
   case isFalse
@@ -26,7 +32,6 @@ case class Condition(path: String, operator: ConditionOperator)
 
 object Condition {
   def getCondition(node: xml.Node, factDictionary: FactDictionary): Option[Condition] = {
-    // Validate that the condition, if it exists, is properly defined
     val path = optionString(node \@ "path")
     val ifTrue = optionString(node \@ "if-true")
     val ifFalse = optionString(node \@ "if-false")
@@ -37,8 +42,6 @@ object Condition {
     validateCondition(factDictionary, ifTrue)
     validateCondition(factDictionary, ifFalse)
 
-    // We break down the friendly "if-true", "if-false" config attributes into a more standardized
-    // "condition" and "operator" implementation
     if (ifTrue.isDefined) {
       return Option(Condition(ifTrue.get, ConditionOperator.isTrue))
     } else if (ifFalse.isDefined) {

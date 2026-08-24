@@ -1,3 +1,9 @@
+// The `<input>` (or `<select>`) inside an `<fg-set>`, and the extension point applications add one
+// through. An application-registered type arrives as `Input.custom`, whose name also names the
+// template that renders it. Registrations are checked BEFORE the built-ins, so an application can
+// replace a built-in type as well as add one.
+// Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.factgraph.FactDictionary
@@ -8,13 +14,7 @@ import scala.xml.Node
 
 case class HtmlOption(name: String, value: String, description: Option[String] = None)
 
-/** Everything an input parser is given about the `<input>` it is looking at.
-  *
-  * @param inputNode
-  *   the `<input>` element itself, so a parser can read its own attributes
-  * @param path
-  *   the enclosing `<fg-set>`'s fact path — only ever used to make errors say where they came from
-  */
+/** `path` is the enclosing `<fg-set>`'s fact path, used only in error messages. */
 case class InputContext(
     inputNode: Node,
     path: String,
@@ -22,13 +22,7 @@ case class InputContext(
     factDictionary: FactDictionary,
 )
 
-/** How an app teaches the scaffold an input type it does not ship.
-  *
-  * Registered by `<input type="...">` value in [[FormBuilderApp.inputTypes]] and merged over the built-ins, so an app
-  * can add a type or reshape one. A parser normally returns [[Input.custom]], whose `typeString` also names the
-  * template that renders it (`nodes/inputs/{typeString}.html`) — which the app supplies through the same app-first
-  * resolution that serves its overrides.
-  */
+/** An input type an application registers under an `<input type="...">` value in [[FormBuilderApp.inputTypes]]. */
 trait InputParser {
   def parse(context: InputContext): Input
 }
@@ -43,17 +37,16 @@ enum Input {
   case dollar(optional: Boolean = false)
   case date(optional: Boolean = false)
 
-  /** An input type an app registered.
+  /** An input type an application registered.
     *
-    * The scaffold does not know what it means; it knows its name, whether it is optional, and whatever the app's parser
-    * chose to carry in `templateVariables` for its template to read. The `Input` enum is sealed — an app cannot add a
-    * case to it — so this is the case that makes the enum extensible without making it open.
-    *
-    * `nodeType` is how a custom input still gets the fact-type check every built-in gets: name the Fact Graph node type
-    * it binds to (`"BooleanNode"`), or leave it `None` to opt out.
-    *
-    * `suppliesOwnLabel` says the template renders its own label — a fieldset with a legend, or a checkbox with its
-    * label beside it — so `fg-set` should not put a `<label>` in front of it.
+    * @param name
+    *   the `<input type="...">` value, which also names the template at `nodes/inputs/{name}.html`
+    * @param templateVariables
+    *   values for the registered template, passed through with their Scala types intact
+    * @param nodeType
+    *   the Fact Graph node type to check against, or `None` to skip the check
+    * @param suppliesOwnLabel
+    *   the template renders its own label, so `fg-set` must not put one in front of it
     */
   case custom(
       name: String,
@@ -75,7 +68,7 @@ enum Input {
     case Input.custom(name, _, _, _, _) => name
   }
 
-  /** Whether this input is declared optional — a `<Placeholder>` on the fact it binds to. */
+  /** Optional means a `<Placeholder>` on the fact it binds to. */
   def isOptional: Boolean = this match {
     case Input.text(o)                 => o
     case Input.int(o)                  => o
@@ -88,7 +81,7 @@ enum Input {
     case Input.custom(_, o, _, _, _)   => o
   }
 
-  /** The Fact Graph node type this input must bind to, or `None` when it does not care. */
+  /** `None` when the input does not care. */
   def expectedNodeType: Option[String] = this match {
     case Input.text(_)                      => Some("StringNode")
     case Input.int(_)                       => Some("IntNode")
@@ -101,11 +94,8 @@ enum Input {
     case Input.custom(_, _, _, nodeType, _) => nodeType
   }
 
-  /** Whether the input's own template supplies the question label, so `fg-set` must not render one in front of it.
-    *
-    * True for the inputs that wrap their options in a `<fieldset>` with the question as its `<legend>`; a registered
-    * input says so for itself, because a checkbox with the question beside it needs the same suppression without being
-    * a fieldset at all.
+  /** True for the built-ins that wrap their options in a `<fieldset>` with the question as its `<legend>`. A registered
+    * input answers for itself through `suppliesOwnLabel`.
     */
   def usesFieldset: Boolean = this match {
     case Input.boolean(_, _)                        => true
@@ -126,7 +116,7 @@ object Input {
   ): Input = {
     val path = node \@ "path"
 
-    // Handle the <select> as a special case
+    // Handled here rather than as an `<input type="select">`.
     val selectNode = node \ "select"
     if (selectNode.nonEmpty) {
       val optionsPath = Option(selectNode \@ "options-path").filter(_.nonEmpty)
@@ -145,7 +135,6 @@ object Input {
       return Input.select(options, optionsPath, isOptional)
     }
 
-    // Otherwise parse the <input>
     val inputNode = node \ "input"
     if (inputNode.isEmpty) {
       throw InvalidFormConfig(s"Missing an input for question $path")
@@ -153,8 +142,7 @@ object Input {
 
     val typeString = inputNode \@ "type"
 
-    // An app's registrations win over the built-ins, so registering "date" reshapes the scaffold's own date input
-    // rather than sitting alongside it.
+    // Before the built-ins, so registering an existing name replaces that type.
     app.inputTypes.get(typeString) match {
       case Some(parser) =>
         return parser.parse(InputContext(inputNode.head, path, isOptional, factDictionary))

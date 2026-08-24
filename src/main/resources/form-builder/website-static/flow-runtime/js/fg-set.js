@@ -1,3 +1,10 @@
+// `<fg-set>`: one question, bound to one fact path.
+//
+// The markup it wires is rendered server-side, so every branch of the `inputType` switch has a
+// matching template under templates/nodes/inputs/. Adding an input type is two edits, not one.
+//
+// See docs/internals/flow-runtime.md.
+
 import { fg } from './fact-graph-engine.js'
 import { factGraph, saveFactGraph } from './fg-fact-graph.js'
 import { showOrHideAllElements } from './fg-conditions.js'
@@ -9,9 +16,8 @@ class FgSet extends HTMLElement {
     this.DEFAULT_ERROR_ELEMENT_ID = 'errors.Default'
 
     this.tabListener = (event) => {
-      // Conditions must be re-evaluated before the keydown event resolves, so that focusable
-      // elements are updated before the focus moves. The `blur` and `change` events don't fire
-      // until *after* the focus has already moved.
+      // Conditions must be re-evaluated before the keydown resolves, so focusable elements update
+      // before focus moves. `blur` and `change` fire only after it already has.
       if (event.key === 'Tab') {
         // TODO: Prevent these from being called twice (once here, once through onChange)
         this.setFact()
@@ -28,7 +34,7 @@ class FgSet extends HTMLElement {
     this.optional = this.getAttribute('optional') === 'true'
 
     switch (this.inputType) {
-      // This switch statement is intentionally not exhaustive
+      // Intentionally not exhaustive. An unlisted type falls through to the blur/tab default.
       case 'date': {
         this.addEventListener('change', () => {
           const allFilled = Array.from(this.inputs).every(input => {
@@ -54,7 +60,6 @@ class FgSet extends HTMLElement {
         for (const input of this.inputs) {
           input.addEventListener('change', () => {
             this.onChange()
-            // Clear validation error once user makes a selection
             this.clearValidationError()
           })
         }
@@ -71,7 +76,7 @@ class FgSet extends HTMLElement {
 
     console.debug(`Adding fg-set with path ${this.path} of inputType ${this.inputType}`)
 
-    // This is done with bind, rather than an arrow function, so that it can be removed later
+    // bind rather than an arrow function, so disconnectedCallback can remove the same reference.
     this.clear = this.clear.bind(this)
     document.addEventListener('fg-clear', this.clear)
 
@@ -91,7 +96,6 @@ class FgSet extends HTMLElement {
     const errorElement = this.querySelector('.usa-error-message')
     const errorId = errorElement?.id
 
-    // Remove errorId from aria-describedby
     const elementWithDescription = this.querySelector('[aria-describedby]')
     const ariaDescription = elementWithDescription?.getAttribute('aria-describedby')
 
@@ -106,7 +110,6 @@ class FgSet extends HTMLElement {
         : elementWithDescription.removeAttribute('aria-describedby')
     }
 
-    // Remove the error treatment
     errorElement?.remove()
     this.querySelector('.validate-alert')?.remove()
     this.querySelector('.usa-form-group')?.classList.remove('usa-form-group--error')
@@ -120,9 +123,8 @@ class FgSet extends HTMLElement {
 
   setValidationError (errorText) {
     this.clearValidationError()
-    const errorId = `${this.path}-error` // Keep the slash for primary filer
+    const errorId = `${this.path}-error`
 
-    // Set up the error div
     const errorDiv = document.createElement('div')
     errorDiv.classList.add('usa-error-message')
     errorDiv.setAttribute('id', errorId)
@@ -131,20 +133,17 @@ class FgSet extends HTMLElement {
     const elementWithDescription = this.querySelector('.usa-fieldset, .usa-select, .usa-input')
     const errorLocation = this.querySelector('.usa-radio, .usa-memorable-date, .usa-checkbox, .usa-select, .usa-input-group, .usa-input')
 
-    // Place the error div just before the invalid field location
     errorLocation.insertAdjacentElement('beforebegin', errorDiv)
 
-    // If the element is inside of a closed accordion, open it
+    // Open the surrounding accordion, so the error is not hidden inside a closed <details>.
     const detailsContent = this.closest('details')
     if (detailsContent && detailsContent.open === false) {
       detailsContent.open = true
     }
 
-    // Set aria-description
     const existingAriaDescribedby = elementWithDescription.getAttribute('aria-describedby')
     elementWithDescription.setAttribute('aria-describedby', `${existingAriaDescribedby || ''} ${errorId}`.trim())
 
-    // Set the modifier classes for errors
     this.querySelector('.usa-form-group')?.classList.add('usa-form-group--error')
     this.querySelector('.usa-legend, .usa-label')?.classList.add('usa-label--error')
     this.querySelectorAll('.usa-input-group, .usa-select, .usa-input').forEach(item => {
@@ -187,9 +186,8 @@ class FgSet extends HTMLElement {
       if (res.errorType) {
         const errorTextKey = `errors.${res.errorName}`
         const errorElement = document.getElementById(errorTextKey) || document.getElementById(this.DEFAULT_ERROR_ELEMENT_ID)
-        // `expectedValue` is the limit the value broke against, appended so "Enter an amount more
-        // than" reads as a sentence. A Match limit's is a regular expression, which completes no
-        // sentence a user should be shown, so its message stands alone.
+        // Appended so "Enter an amount more than" reads as a sentence. A Match limit's expected
+        // value is a regular expression, so it is left off.
         const suffix = res.errorName === 'Match' ? '' : ' ' + (res.expectedValue || '')
         this.setValidationError(errorElement.innerText + suffix)
       } else {
@@ -242,7 +240,6 @@ class FgSet extends HTMLElement {
       }
     }
 
-    // Clear error and alerts
     this.error = null
     this.clearAlerts()
     this.clearValidationError()
@@ -263,14 +260,13 @@ class FgSet extends HTMLElement {
       case 'boolean':
       case 'enum': {
         if (value !== '') {
-          // Quoted value + CSS.escape so numeric values (e.g. 2024) are valid selectors
+          // CSS.escape, so a numeric value such as 2024 is still a valid selector.
           const input = this.querySelector(`input[value="${CSS.escape(value)}"]`)
           if (input) input.checked = true
         }
         break
       }
       case 'multi-enum': {
-        // MultiEnum stores Set of values - convert from Scala Set to JS Set
         const selectedValues = fact.hasValue ? fg.scalaSetToJsSet(fact.get.getValue()) : new Set()
         const checkboxes = this.querySelectorAll('input[type="checkbox"]')
         for (const checkbox of checkboxes) {
@@ -293,14 +289,12 @@ class FgSet extends HTMLElement {
         const yearInput = this.querySelector('input[name*="-year"]')
 
         if (value) {
-          // When the fact has all three fields filled out, set it up
           const [year, month, day] = value.split('-')
           monthSelect.value = month
           dayInput.value = day
           yearInput.value = year
         } else if (!monthSelect.value && !dayInput.value && !yearInput.value) {
-          // Only clear if the inputs are truly empty (not just fact incomplete)
-          // This preserves partial user input during fg-update events
+          // Clear only when the inputs are genuinely empty, so a partly typed date survives fg-update.
           monthSelect.value = ''
           dayInput.value = ''
           yearInput.value = ''
@@ -325,10 +319,9 @@ class FgSet extends HTMLElement {
         return this.querySelector('input:checked')?.value
       }
       case 'multi-enum': {
-        // Collect all checked checkbox values into Set, convert to Scala Set, wrap in MultiEnum
         const checkboxes = this.querySelectorAll('input[type="checkbox"]:checked')
         const values = new Set(Array.from(checkboxes).map(cb => cb.value))
-        // Return null if empty (not empty Set) to match optional field semantics
+        // null rather than an empty Set, so an unanswered multi-enum reads as absent.
         return values.size > 0 ? fg.MultiEnum(fg.jsSetToScalaSet(values), '') : null
       }
       case 'select': {
@@ -338,7 +331,7 @@ class FgSet extends HTMLElement {
         const month = this.querySelector('select[name*="-month"]')?.value
         const day = this.querySelector('input[name*="-day"]')?.value
         const year = this.querySelector('input[name*="-year"]')?.value
-        // Adding padStart to day changes user's input from 1 to 01
+        // padStart, so a day typed as 1 is sent as 01.
         return `${year}-${month}-${day.padStart(2, '0')}`
       }
       case 'text':
@@ -370,13 +363,7 @@ class FgSet extends HTMLElement {
     return res
   }
 
-  /**
-   * Deletes the current fact without sending fg-update.
-   *
-   * Used when processing the fg-update event to delete facts that are no longer visible. It will
-   * be called multiple times per fg-update because deleting some facts may trigger others to be
-   * deleted. It does not dispatch fg-update itself because that would throw off unnecessary events.
-   */
+  /** Dispatching fg-update from here would recurse: this runs while handling one. */
   deleteFactNoUpdate () {
     console.debug(`Deleting fact ${this.path}`)
 

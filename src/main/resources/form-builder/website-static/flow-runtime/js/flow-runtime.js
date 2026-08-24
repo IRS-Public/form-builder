@@ -1,15 +1,10 @@
-// The flow runtime's entry point — the custom elements that make a generated questionnaire work.
+// The flow runtime's entry point. Defines the custom elements, boots the Fact Graph from the
+// application's own fact-dictionary.xml, and starts single-question navigation.
 //
-// Importing this defines `<fg-set>`, `<fg-collection>`, `<fg-show>`, `<fg-reset>` and the modal
-// elements, boots the Fact Graph from the application's own `fact-dictionary.xml`, and starts
-// single-question navigation. Everything here is true of *any* flow the scaffold generates; nothing
-// here knows which application it is.
+// Nothing here knows which application it is. An app imports this first, then its own modules, and
+// extends the runtime through registerContinueHandler() and DOM events.
 //
-// An application that needs more than this — its own knockout gates, its own destructive-change
-// confirmations — imports this module first and then its own, registering through
-// `registerContinueHandler()` and the ordinary DOM events. That is the seam: this bundle grew out
-// of one host's `website-static/js/`, and the parts of it that were that host's business stayed
-// behind rather than moving in here.
+// See docs/internals/flow-runtime.md.
 
 import './fg-fact-graph.js'
 import { showOrHideAllElements } from './fg-conditions.js'
@@ -19,19 +14,16 @@ import './fg-display.js'
 import './continue-handlers.js'
 import { initSingleQuestionNav } from './fg-navigator.js'
 
-// Add show/hide functionality to all elements
 document.addEventListener('fg-update', showOrHideAllElements)
 showOrHideAllElements()
 
-// #page-content-wrapper / #loading-spinner exist on the flow page template (page.html) but not
-// on the /all-screens audit view, which renders all pages directly without a loading spinner.
+// Absent on the /all-screens view, which renders every page at once with no loading spinner.
 document.querySelector('#page-content-wrapper')?.classList.remove('hidden')
 document.querySelector('#loading-spinner')?.classList.add('hidden')
 
 initSingleQuestionNav()
 
-// Open all <details> elements that have a complete fact, so users can see information they've
-// entered if they return to a page.
+// Open <details> elements whose fact is already complete, so a returning user sees their answers.
 for (const fgSet of document.querySelectorAll('.fg-detail fg-set:not(.hidden)')) {
   if (fgSet.isComplete()) {
     fgSet.closest('.fg-detail').setAttribute('open', '')

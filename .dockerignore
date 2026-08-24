@@ -1,6 +1,6 @@
 # This repository is consumed as a *named build context* by the applications built on it:
 #
-#   docker build --build-context form-builder=../form-builder …
+#   docker build --build-context form-builder=/path/to/form-builder …
 #
 # and a named context has no .dockerignore of its own to fall back on — the application's
 # .dockerignore applies only to the application's own context. Without this file, a developer's

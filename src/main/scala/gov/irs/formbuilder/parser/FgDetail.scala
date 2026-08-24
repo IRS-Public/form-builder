@@ -1,3 +1,6 @@
+// `<fg-detail>`: a collapsible `<details>`-style disclosure with a translated summary. Carries an optional
+// condition, which PageSplitter propagates down to any contained question that has none of its own.
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.factgraph.FactDictionary
@@ -26,9 +29,8 @@ case class FgDetail(
     context.setVariable("childrenHtml", childrenHtml)
     context.setVariable("useChevron", java.lang.Boolean.valueOf(useChevron))
     context.setVariable("detailsClass", detailsClass.orNull)
-    // The chevron modifier and whatever `class` the flow authored, joined here rather than in the
-    // template: a detail can carry either, both or neither, and OGNL string concatenation would
-    // leave a stray space in three of those four cases. Null when empty so th:classappend skips it.
+    // Joined in Scala rather than the template: OGNL concatenation would leave a stray space when only one of the
+    // two is present. Null when empty so th:classappend skips it.
     val extraClasses = (Option.when(useChevron)("fg-detail--chevron") ++ detailsClass).mkString(" ")
     context.setVariable("extraClasses", if (extraClasses.isEmpty) null else extraClasses)
     context.setVariable("headingTag", headingTag)

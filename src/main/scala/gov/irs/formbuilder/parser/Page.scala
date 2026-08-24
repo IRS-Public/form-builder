@@ -1,3 +1,8 @@
+// `<page>`: one route, and the unit the generator turns into one index.html per language. Also where
+// navigation gets its inputs: `gatingCondition` and `knockoutConditionPaths` are read by FlowManifest
+// and by the Browse All listing. Only parsed at the flow config root; see FlowParser.
+// Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.parser
 
 import gov.irs.formbuilder.exceptions.InvalidFormConfig
@@ -18,16 +23,11 @@ case class Page(
 ) extends FlowNode {
   val titleKey: String = translationContext.fullKey("title")
 
-  /** Route used for stepper grouping: the source page when this Page was produced by PageSplitter, otherwise the route
-    * itself.
-    */
+  /** The source page when PageSplitter produced this one, otherwise the route itself. */
   def stepperRoute: String = sourcePageRoute.getOrElse(route)
 
-  /** Page-level gating condition for nav-skip in single-question-per-screen mode.
-    *
-    * Only single-question pages have a meaningful page-level gate. Multi-question pages (e.g., AGI sub-sections grouped
-    * by h3) deliberately return None: each question's own condition still drives in-page show/hide via
-    * fg-components.js, but the page as a whole is always reachable so the user lands on at least one visible question.
+  /** The gate used to skip a page in single-question-per-screen mode. Only a page with exactly one question has one, so
+    * a multi-question page stays reachable and the user lands on at least one visible question.
     */
   def gatingCondition: Option[Condition] =
     if (countQuestions(children) != 1) None
@@ -51,7 +51,7 @@ case class Page(
     case _               => 0
   }.sum
 
-  /** Condition paths of all FgAlert(knockout=true) reachable from children, in DOM order. */
+  /** In DOM order. */
   def knockoutConditionPaths: Seq[String] = {
     def find(nodes: Seq[FlowNode]): Iterator[String] = nodes.iterator.flatMap {
       case s: Section               => find(s.children)
@@ -70,7 +70,7 @@ case class Page(
 
   override def html(templateEngine: FormBuilderTemplateEngine): String = {
     val pageContent = children.html(templateEngine)
-    // Coerce all fg-show nodes into open, empty tags because HTML doesn't allow custom, self-closing tags
+    // HTML does not allow self-closing custom tags.
     val regex = new Regex("""<fg-show ([^>]*)>""", "attributes")
     val pageHtml = regex.replaceAllIn(
       pageContent,
@@ -89,8 +89,7 @@ object Page extends FlowNodeParser {
       optionString(page \@ "title").getOrElse(throw InvalidFormConfig("<page> is missing a title attribute"))
     val exclude = (page \@ "exclude-from-stepper").toBooleanOption.getOrElse(false)
     val groupBy = optionString(page \@ "group-by")
-    // Written by FormBuilder.resolveModule as it splices index.xml's modules together, not by an
-    // author — a page read straight from a single-file flow simply has none.
+    // Stamped on by FormBuilder.resolveModule. A page from a single-file flow has none.
     val module = optionString(page \@ "module")
 
     val translationContext = parentTranslationContext.forChildWithId(route)

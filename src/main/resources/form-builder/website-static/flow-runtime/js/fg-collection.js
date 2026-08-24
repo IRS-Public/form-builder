@@ -1,15 +1,18 @@
+// `<fg-collection>` and `<fg-collection-item>`: a repeating group, one item per entry in a Fact
+// Graph collection.
+//
+// Each item is a clone of the collection's `<template class="fg-collection__item-template">` with
+// the item's id spliced into every abstract `/*/` path. See docs/internals/flow-runtime.md.
+
 import { factGraph, saveFactGraph } from './fg-fact-graph.js'
 import { configureCollectionIds, makeCollectionIdPath, generateUUID } from './fg-collection-utils.js'
 import { checkCondition } from './fg-conditions.js'
 
-/*
- * <fg-collection> - Expandable collection list
- */
 class FgCollection extends HTMLElement {
   constructor () {
     super()
 
-    // Make listener a persistent function so we can remove it later
+    // Held on the instance so disconnectedCallback can remove the same reference.
     this.addItemListener = () => this.addItem()
 
     this.boundUpdateAddItemButton = () => {
@@ -29,28 +32,19 @@ class FgCollection extends HTMLElement {
     }
   }
 
-  /** Flow `add-item-if-true` on `<fg-collection>`: fact path that must be true (or incomplete) to allow adding a row. */
+  /** Flow `add-item-if-true`: the fact that must be true, or incomplete, to allow adding a row. */
   getAddItemIfTruePath () {
     const p = this.getAttribute('data-add-item-if-true')
     return p && p.length > 0 ? p : null
   }
 
-  /**
-   * Fact path deciding whether this collection should start with one empty row already open, or
-   * null when the flow did not ask for that.
-   *
-   * Declared per collection in the flow XML (`seed-item-if-true`). It used to be one application's
-   * fact path, written inline here.
-   */
+  /** Flow `seed-item-if-true`: whether this collection starts with one empty row already open. */
   getSeedItemIfTruePath () {
     const p = this.getAttribute('data-seed-item-if-true')
     return p && p.length > 0 ? p : null
   }
 
-  /**
-   * Disable "Add …" when the configured fact is complete false. If incomplete, keep enabled (same
-   * as isTrue UX without blocking mid-edit).
-   */
+  /** An incomplete fact keeps the button enabled, so a mid-edit answer does not block. */
   updateAddItemButton () {
     const factPath = this.getAddItemIfTruePath()
     if (!factPath) return
@@ -77,17 +71,13 @@ class FgCollection extends HTMLElement {
       document.addEventListener('fg-update', this.boundUpdateAddItemButton)
     }
 
-    // Add any items that currently exist in this collection
     const ids = factGraph.getCollectionIds(this.path)
     ids.map(id => this.addItem(id))
 
-    // If disallowempty="true" and no items, add one
     if (this.getAttribute('disallowempty') === 'true' && this.querySelectorAll('fg-collection-item').length === 0) {
       this.addItem()
     }
 
-    // Seed one empty row on first paint when the flow says this collection needs an entry — for a
-    // cohort that must fill it in, an empty collection with a button reads as optional.
     const seedPath = this.getSeedItemIfTruePath()
     if (seedPath && this.querySelectorAll('fg-collection-item').length === 0) {
       try {
@@ -151,14 +141,13 @@ class FgCollectionItem extends HTMLElement {
   constructor () {
     super()
 
-    // Make listener a persistent function so we can remove it later
+    // Held on the instance so disconnectedCallback can remove the same reference.
     this.clearListener = () => this.clear()
   }
 
   connectedCallback () {
     console.debug('Connecting', this)
 
-    // Get our template from the parent fg-collection
     const fgCollection = this.closest('fg-collection')
     const templateContent = fgCollection.querySelector('.fg-collection__item-template').content.cloneNode(true)
 
@@ -167,26 +156,22 @@ class FgCollectionItem extends HTMLElement {
 
     this.append(templateContent)
 
-    // Set up collection item detail IDs to enable interactions
     const collectionItemButton = this.querySelector('.fg-collection__item-container summary')
     const collectionItemContent = this.querySelector('.fg-collection__item-container details')
     collectionItemButton.setAttribute('aria-controls', `collection-item-${collectionId}`)
     collectionItemContent.setAttribute('id', `collection-item-${collectionId}`)
 
-    // Open the details element by default.
     if (collectionItemContent.open === false) {
       collectionItemContent.open = true
     }
 
     this.removeButton = this.querySelector('.fg-collection-item__remove-item')
     const modalId = this.removeButton.getAttribute('for')
-    // Make listener a persistent function so that we can remove it later
     this.clickRemoveItemListener = () => this.handleClickRemoveItem(modalId)
     this.removeButton.addEventListener('click', this.clickRemoveItemListener)
 
     document.addEventListener('fg-clear', this.clearListener)
 
-    // Set collection item numbers
     fgCollection.setCollectionItemNumbers()
   }
 
@@ -196,12 +181,11 @@ class FgCollectionItem extends HTMLElement {
     this.removeButton.removeEventListener('click', this.clickRemoveItemListener)
     document.removeEventListener('fg-clear', this.clearListener)
 
-    // Reset content
     this.replaceChildren()
   }
 
   handleClickRemoveItem (modalId) {
-    // Override the corresponding modal's onclick to remove this collection item
+    // One shared confirm modal per collection, so its confirm button is rebound to this item.
     const modal = document.querySelector(`#${modalId}`)
     const confirmButton = modal.querySelector('.fg-collection__remove-item-modal__button-confirm')
     confirmButton.onclick = () => {
@@ -225,7 +209,6 @@ class FgCollectionItem extends HTMLElement {
     factGraph.removeFromCollection(collectionPath, collectionId)
     saveFactGraph()
 
-    // Remove this element and its parent fieldset from the DOM after removing the item from the fact graph
     this.remove()
     fgCollection.setCollectionItemNumbers()
     document.dispatchEvent(new CustomEvent('fg-update'))

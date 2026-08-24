@@ -1,3 +1,8 @@
+// Renders the whole site: every page of the parsed flow, once per language, plus the optional Browse
+// All and Author Mode pages. `save` writes that tree to disk along with the application's own
+// website-static, the library's browser assets and the merged fact dictionary.
+// Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.generators
 
 import gov.irs.formbuilder.build.Flags
@@ -14,11 +19,12 @@ import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters.*
 
 case class WebsitePage(route: String, content: String, languageCode: String) {
+
+  /** Pretty-printed so view-source is readable. No effect on rendering. */
   def html(): String = {
-    // This step largely serves to make the output easy to read in view-source
     val document = Jsoup.parse(content)
 
-    // Set certain elements to "block" formatting
+    // Unknown tags, which jsoup treats as inline unless told otherwise.
     // https://github.com/jhy/jsoup/issues/2141#issuecomment-2795853753
     val setElement = document.selectFirst("fg-set")
     if (setElement != null) {
@@ -27,9 +33,7 @@ case class WebsitePage(route: String, content: String, languageCode: String) {
       setElement.children().forEach(child => child.tag().set(Tag.Block))
     }
 
-    // Convert to an HTML string
     var html = document.html()
-    // Adding a newline after each <fg-set> block to make them easier to see
     html = html.replace("</fg-set>", "</fg-set>\n")
 
     html
@@ -42,8 +46,7 @@ case class WebsitePage(route: String, content: String, languageCode: String) {
     var path = root
     if (isTranslated) path = path / languageCode
     if (isNamedRoute) {
-      // In one question per screen mode, routes may have multiple segments (e.g. "/filing-status/knows-filing-status"
-      // os.Path rejects "/" inside a chunk, so split it out.
+      // A route may have several segments, and os.Path rejects "/" inside a chunk.
       route.stripPrefix("/").split("/").filter(_.nonEmpty).foreach(seg => path = path / seg)
     }
 
@@ -61,7 +64,6 @@ case class Website(
   def save(directoryPath: Path, app: FormBuilderApp): Unit = {
     os.remove.all(directoryPath)
 
-    // Write the pages
     for (page <- this.pages) {
       val target = page.filepath(directoryPath, app.defaultLocale)
       os.write(target, page.html(), null, createFolders = true)
@@ -71,8 +73,7 @@ case class Website(
     val resourcesTarget = directoryPath / "resources"
     os.copy(resourcesSource, resourcesTarget)
 
-    // The library's own browser assets — the theme and the flow runtime — extracted out of this jar into the same
-    // `vendor/` shape the app's committed vendor directories use. See FormBuilderAssets.
+    // The theme and the flow runtime, extracted out of this jar.
     FormBuilderAssets.extractInto(resourcesTarget)
 
     val dictionaryString = factDictionary.toString
@@ -80,8 +81,7 @@ case class Website(
 
     flowManifestJson.foreach(json => os.write(resourcesTarget / "flow-manifest.json", json, null))
 
-    // The Form Graph Model, served at {basePath}/resources/form-builder-graph.json. Fact
-    // Explorer fetches it from the running app through its dev proxy — no copy step to go stale.
+    // Where Fact Explorer fetches it.
     formBuilderGraphJson.foreach(json => os.write(resourcesTarget / "form-builder-graph.json", json, null))
 
     scenariosSourceDir.foreach { srcDir =>
@@ -145,9 +145,8 @@ object Website {
         val titlePrefix = templateEngine.messageResolver.resolveMessage("title.prefix")
         val titleSuffix = templateEngine.messageResolver.resolveMessage("title.suffix")
 
-        // How the three parts make a <title> is `title.format` in the locale, not a decision here.
-        // The two apps compose it differently — one wants the page name in the tab, the other only
-        // the product — and that is a wording choice, which is what a locale file is for.
+        // `title.format` in the locale file, so an application can reorder or drop any part without
+        // a code change.
         val title = templateEngine.messageResolver.resolveMessage(
           null,
           null,
@@ -174,16 +173,13 @@ object Website {
         context.setVariable("flags", flags.asJava)
         context.setVariable("languageCode", languageCode)
         context.setVariable("supportedLocales", supportedLocales.asJava)
-        // Active item in the shared global nav (see the `taxpert` package). The user-facing
-        // questionnaire is the "Product Experience" under Experience Explorer.
+        // Active item in the workspace's global nav, if the application mounts one.
         context.setVariable("navActive", "product-experience")
 
-        // Add a link for the next page if it's not the last one
         if (index < flow.pages.size - 1) {
           val nextPageHref = flow.pages(index + 1).href(languageCode, app)
           context.setVariable("nextPageHref", nextPageHref)
         }
-        // Add a link for the last page if it's not the first one
         if (index > 0) {
           val lastPageHref = flow.pages(index - 1).href(languageCode, app)
           context.setVariable("lastPageHref", lastPageHref)
@@ -191,7 +187,6 @@ object Website {
           context.setVariable("first", true)
         }
 
-        // Turn all the pages into HTML representations and join them together
         val pageHtml = page.html(templateEngine)
 
         context.setVariable("pageHtml", pageHtml)
@@ -216,10 +211,8 @@ object Website {
       pages = pages ++ authorPages
     }
 
-    // In single-question-per-screen mode, emit a manifest that the navigation JS uses to skip
-    // pages whose gating condition is false against the live Fact Graph. The manifest is built
-    // for "en" only because routes are identical across locales (only the href prefix differs);
-    // the JS computes the localized href client-side from window.location.
+    // Default locale only. Routes are identical across languages, and the navigation JS derives the
+    // href prefix client-side.
     val manifestJson = Option.when(flags.contains(Flags.singleQuestionPerScreen)) {
       Printer.spaces2.print(FlowManifest.buildJson(flow, app.defaultLocale, app))
     }

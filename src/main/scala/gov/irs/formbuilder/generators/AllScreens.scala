@@ -1,3 +1,8 @@
+// The Browse All page (--allScreens): every screen on one page at /all-screens, grouped into sections
+// by module. The toolbar and styling over it belong to the workspace package, mounted through
+// fragments/workspace-all-screens.html, so this generator emits the markup and nothing else.
+// Long-form: docs/internals/flow-parsing-and-generation.md
+
 package gov.irs.formbuilder.generators
 
 import gov.irs.formbuilder.parser.Flow
@@ -23,24 +28,18 @@ case class AllScreens(pages: List[WebsitePage], factDictionary: xml.Elem) {
     val resourcesTarget = directoryPath / "resources"
     os.copy(resourcesSource, resourcesTarget)
 
-    // As in Website.save — this page links main.css and the flow runtime too. See FormBuilderAssets.
     FormBuilderAssets.extractInto(resourcesTarget)
   }
 }
 
 object AllScreens {
-  // Which flow module a page belongs to, and so which section of the listing it lands in.
-  //
-  // `page.module` is stamped on by FormBuilder.resolveModule and is the answer whenever a flow is
-  // assembled from index.xml — i.e. always, in practice. The route fallback is for a page parsed
-  // out of a single-file flow: routes like "/about-you/marital-status" → "about-you".
+  // `page.module` is set whenever the flow was assembled from index.xml. The route fallback covers a
+  // single-file flow: "/about-you/marital-status" gives "about-you".
   private def moduleSlug(page: Page): String = page.module.getOrElse {
     val parts = page.route.stripPrefix("/").split("/", 2)
     if (parts.nonEmpty && parts(0).nonEmpty) parts(0) else "other"
   }
 
-  // Counts the number of `condition="..."` attributes Thymeleaf wrote into the rendered HTML.
-  // This includes fg-set, fg-alert, fg-collection, fg-detail, and any conditional HTML elements.
   private val conditionAttrRegex = """\bcondition="[^"]+"""".r
   private def countConditions(html: String): Int = conditionAttrRegex.findAllIn(html).size
 
@@ -57,30 +56,22 @@ object AllScreens {
 
     context.setVariable("languageCode", languageCode)
     context.setVariable("supportedLocales", supportedLocales.asJava)
-    // Trailing slash, matching what Website.scala normalizes a page route to and what this page is
-    // actually served at (WebsitePage.filepath writes `all-screens/index.html`). The language
-    // switcher in all-screens.html builds one route per locale out of this, and the Display modal
-    // preselects the current language by comparing those routes with location.pathname — which ends
-    // in a slash, so without one here every option looked like a different page than the one on
-    // screen and the control opened on "Select Language" instead of the language you were reading.
+    // Trailing slash required: the language switcher compares the routes it builds from this against
+    // location.pathname, which ends in one.
     context.setVariable("currentPageRoute", "/all-screens/")
     context.setVariable("flags", flags.asJava)
     context.setVariable("scenarios", scenarios)
-    // Active item in the shared global nav (see the `taxpert` package). This one generated page backs both
-    // "Browse All" and "Path Mode" under Experience Explorer, told apart by `?mode=path` — which
-    // the server can't see, so all-screens-bootstrap.js re-points this at Path Mode when the URL
-    // asks for it.
+    // Active item in the workspace's global nav. This one page backs both Browse All and Path Mode, told apart by
+    // a `?mode=path` query the server cannot see, so the application's bootstrap JS re-points it client-side.
     context.setVariable("navActive", "browse-all")
 
-    // Pre-render every page once, alongside its module slug and condition count.
     case class RenderedPage(page: Page, content: String, conditionCount: Int)
     val rendered = flow.pages.map { page =>
       val content = page.html(templateEngine)
       RenderedPage(page, content, countConditions(content))
     }
 
-    // Group by module while preserving the order in which modules first appear in flow.pages
-    // (which mirrors the include order in flow/index.xml).
+    // Grouped in the order modules first appear in flow.pages, which mirrors the include order in flow/index.xml.
     val grouped = LinkedHashMap.empty[String, List[RenderedPage]]
     rendered.foreach { r =>
       val slug = moduleSlug(r.page)

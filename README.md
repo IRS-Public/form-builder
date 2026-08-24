@@ -21,7 +21,11 @@ com/IRS-Public/form-builder-template). To see examples of Form Builder applicati
 [Taxpert](https://github.com/IRS-Public/taxpert/), see [Form Builder Examples](https://github.
 com/IRS-Public/form-builder-examples/)
 
-## Form Builder in the Fact Graph Ecosystem
+See Form Builder Template's [onboarding guide](https://github.com/IRS-Public/form-builder-template/docs/ONBOARDING.md)
+to quickstart a new Form Builder application . See the [architecture 
+guide](docs/ARCHITECTURE.md) for more information about the layout of this repository. 
+
+## Where this fits
 
 | Component | What it is                                                                                                                                                                                                                                                                                                                                          |
 |---|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -45,6 +49,8 @@ This codebase is dedicated to the public domain under the [Creative Commons Zero
 > IRS does not endorse, maintain, or guarantee the accuracy, completeness, or functionality of the code in this repository. The IRS assumes no responsibility or liability for any use of the code by external parties, including individuals, developers, or organizations. This includes, but is not limited to, any tax consequences, computation errors, data loss, or other outcomes resulting from the use or modification of this code.
 >
 > Use of the code in this repository is at your own risk. This repository is not intended for production use or public consumption as a finalized product.
+> 
+> Artificial Intelligence was used in generating portions of this codebase. 
 
 
 # Authorities

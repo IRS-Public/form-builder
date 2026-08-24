@@ -10,21 +10,21 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CA_PATH: credit-assistant
-  EITCAST_PATH: eitc-assistant
+  SOURCE_PATH: form-builder
+  PUBLIC_REPO: form-builder
 
 permissions:
   contents: read
 
 jobs:
   sync-to-public:
-    name: Sync to IRS-Public/eitc-assistant ${{ inputs.dry_run && '(dry-run)' || '' }}
+    name: Sync to IRS-Public/${{ env.PUBLIC_REPO }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout ${{ env.CA_PATH }}
+      - name: Checkout ${{ env.SOURCE_PATH }}
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          path: ${{ env.CA_PATH }}
+          path: ${{ env.SOURCE_PATH }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -32,15 +32,15 @@ jobs:
         run: |
           git config --global --unset-all http.https://github.com/.extraheader || true
 
-      - name: Mirror to IRS-Public/${{ env.EITCAST_PATH }}
+      - name: Mirror to IRS-Public/${{ env.PUBLIC_REPO }}
         env:
-          PAT: ${{ secrets.IRS_PUBLIC_CA_SVC_ACCT_PAT }}
+          PAT: ${{ secrets.IRS_PUBLIC_FORM_BUILDER_SVC_ACCT_PAT }}
           USER: df-irs-svc
-          REPO: ${{ env.EITCAST_PATH }}
-        working-directory: ${{ env.CA_PATH }}
+          REPO: ${{ env.PUBLIC_REPO }}
+        working-directory: ${{ env.SOURCE_PATH }}
         run: |
           set -uxo pipefail
-          : "${PAT:?missing IRS_PUBLIC_CA_SVC_ACCT_PAT}"
+          : "${PAT:?missing IRS_PUBLIC_FORM_BUILDER_SVC_ACCT_PAT}"
           : "${USER:?missing service account username}"
 
           git config --global user.name "$USER"

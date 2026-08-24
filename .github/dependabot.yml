@@ -1,11 +1,14 @@
 version: 2
 updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # The lint and test tooling for the browser assets shipped inside the jar.
   - package-ecosystem: "npm"
-    directory: "/.github"
+    directory: "/"
     schedule:
       interval: "weekly"
     allow:
       - dependency-type: "direct"
-    ignore:
-      - dependency-name: "pdf-lib"
-        update-types: ["version-update:semver-major"]  # Optional: ignore v2.x if released

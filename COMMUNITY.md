@@ -1,6 +1,6 @@
 # Community Guidelines
 
-TWE is supported by a dedicated team of individuals fulfilling various roles to ensure its success, security, and alignment with IRS standards and goals.
+Form Builder is supported by a dedicated team of individuals fulfilling various roles to ensure its success, security, and alignment with IRS standards and goals.
 
 ## Project Members
 
@@ -11,11 +11,11 @@ TWE is supported by a dedicated team of individuals fulfilling various roles to 
 | Contributor            | @rav-gov   | IRS         |
 
 
-See [TWE Open Source Community Guidelines](#twe-open-source-community-guidelines) on principles and guidelines for participating in this open source project.
+See [Form Builder Open Source Community Guidelines](#form-builder-open-source-community-guidelines) on principles and guidelines for participating in this open source project.
 
 ## Roles & Responsibilities
 
-The maintainers of the TWE open source project are responsible for guiding its development, ensuring quality standards, and fostering a collaborative environment. While we can accept issues and PRs in draft state as contribution, as it stands today this repository does not support external contributors outside of the IRS.
+The maintainers of the Form Builder open source project are responsible for guiding its development, ensuring quality standards, and fostering a collaborative environment. While we can accept issues and PRs in draft state as contribution, as it stands today this repository does not support external contributors outside of the IRS.
 
 Because this project is currently maintained by a small internal team, the core maintainers also serve as the sole approvers and reviewers for all code changes.
 
@@ -27,9 +27,9 @@ Because this project is currently maintained by a small internal team, the core 
 
 Currently, contributions are limited to IRS affiliated staff, but we welcome and intend to incorporate feedback, through issues or draft PRs as part of our internal development lifecycle.
 
-## TWE Open Source Community Guidelines
+## Form Builder Open Source Community Guidelines
 
-The below contains principles and guidelines for participating in the TWE open source community.
+The below contains principles and guidelines for participating in the Form Builder open source community.
 
 ### Principles
 
@@ -48,7 +48,7 @@ All community members are expected to adhere to our [Code of Conduct](CODE_OF_CO
 
 Information on contributing to this repository is available in our [Contributing file](CONTRIBUTING.md).
 
-When participating in the TWE open source community conversations and spaces, we ask individuals to follow the following guidelines:
+When participating in the Form Builder open source community conversations and spaces, we ask individuals to follow the following guidelines:
 
 - When joining a conversation for the first time, please introduce yourself by providing a brief intro and include your related organization (if applicable).
 - Embrace a culture of learning, and educate each other. We are all entering this conversation from different starting points and with different backgrounds. There are no dumb questions.

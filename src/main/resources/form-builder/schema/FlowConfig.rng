@@ -3,9 +3,15 @@
   registered a node type of its own.
 
   Nothing validates against *this* copy. Each app keeps its own at `<appId>/flow/FlowConfig.rng`
-  and `make validate-xml` runs `xmllint --relaxng` against that one, because an app that registers
-  a custom node has to widen its grammar and the library cannot know about it. form-builder-template
-  copies this file into a new app; from that moment the app owns it.
+  and `make validate-xml` runs `xmllint` in RELAX NG mode against that one, because an app that
+  registers a custom node has to widen its grammar and the library cannot know about it.
+  form-builder-template copies this file into a new app; from that moment the app owns it.
+
+  That sentence used to name the xmllint flag directly, which put a double hyphen inside an XML
+  comment and made this file unparseable by any XML tool. Nothing caught it for exactly the reason
+  the paragraph above gives: nothing validates against this copy. A well-formedness check over the
+  shipped schemas now runs in CI, so a malformed seed fails here rather than in a generated app.
+  Keep hyphen pairs out of this comment; they are what makes an XML comment illegal.
 
   Keep this in step with the parser. The `validate-xml` target went years without ever running on
   flow XML — FLOW_DIR and FLOW_CONFIG were declared and never used — and both apps' schemas drifted

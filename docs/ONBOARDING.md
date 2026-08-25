@@ -1,4 +1,7 @@
-#ONBOARDING 
+# ONBOARDING
+
+To start a new application rather than copying an existing one, see [Form Builder Template](https://github.com/IRS-Public/form-builder-template), a cookiecutter scaffold for Form Builder applications.
+
 ## Requirements
 
 | Tool | Version | Needed for |
@@ -8,9 +11,9 @@
 | Scala | 3.7.2, set by `build.sbt` | Everything |
 | Node | 18.18 or newer, which is what the pinned eslint 9 requires | Only for linting and testing the shipped browser assets |
 
-### Getting `gov.irs::factgraph`
+### Fetch the Fact Graph
 
-Fact Graph is a separate library, and it is on no public artifact registry today, so the way to get
+Fact Graph is a separate library, and isn't on a public artifact registry today, so the way to get
 it is a local publish from a checkout:
 
 ```bash
@@ -19,8 +22,7 @@ cd fact-graph && sbt publishLocal    # -> ~/.ivy2/local/gov.irs/factgraph_3/3.1.
 ```
 
 `~/.ivy2/local` is already first in sbt's default resolver chain, so `build.sbt` here carries no
-resolver entry for it. If Fact Graph is later published to Maven Central, which is also a default
-resolver, this build picks it up with no change.
+resolver entry for it.
 
 ### Consuming this library
 
@@ -32,24 +34,6 @@ build:
 git clone https://github.com/IRS-Public/form-builder.git
 cd form-builder && sbt publishLocal    # -> ~/.ivy2/local/gov.irs/form-builder_3/0.1.0-SNAPSHOT/
 ```
-
-There is no remote to publish to, and the reason is the coordinate. Maven Central verifies the
-`gov.irs` namespace against DNS on `irs.gov`, which is not self-claimable, so `gov.irs` and a public
-registry are not currently compatible. The cost, stated so it stays a choice: a consumer clones this
-repository and publishes locally rather than adding one dependency line.
-
-The version is `0.1.0-SNAPSHOT`, matching `gov.irs::factgraph`, and the suffix is doing work rather
-than marking immaturity. A fixed release version is a promise that the artifact never changes, and
-both Ivy and coursier hold consumers to it — edit the scaffold, `publishLocal` again, and an
-application can go on resolving the copy already in its cache. A snapshot is declared changing, so
-the edit-and-republish loop this library is developed in reaches the applications built on it. An
-application therefore declares:
-
-```scala
-libraryDependencies += "gov.irs" %% "form-builder" % "0.1.0-SNAPSHOT"
-```
-
-Cutting a real release means dropping the suffix here and in every consumer at once.
 
 ## Build and test
 
@@ -65,24 +49,7 @@ npm run lint          # eslint over the shipped browser assets
 npm run format        # eslint --fix
 ```
 
-`package.json` is named `form-builder-assets` and is marked `private`. Nothing here is published to
-npm. It exists so the JavaScript inside
-`src/main/resources/form-builder/website-static/` is held to the same lint and test standard as the
-rest of the client code in this ecosystem. `eslint.config.js` builds on `neostandard` plus
-`eslint-plugin-security`, and adds a rule that flags `innerHTML`, `outerHTML` and
-`insertAdjacentHTML` assignments in the shipped assets, since that markup is supposed to come from
-the Thymeleaf node templates. Two runtime files carry an inline disable with a written reason.
-
-Scala formatting is scalafmt 3.9.9, configured in `.scalafmt.conf` (120 columns, Scala 3 dialect,
-sorted imports, forced trailing commas). `project/plugins.sbt` has one plugin, `sbt-scalafmt`.
-
-There is no scaladoc artifact. `publishLocal` would otherwise run scaladoc, which reads the TASTy of
-every dependency, and factgraph's is cross-built for Scala.js, so its `@JSExport` annotations fail to
-resolve on the JVM classpath. `build.sbt` sets `Compile / packageDoc / publishArtifact := false` for
-that reason.
-
-After publishing a change, re-run **both** reference applications' `make ci`. The second application
-is what catches a change that quietly assumed something only the first one does.
+After publishing a change, re-run **any** reference or dependent applications' `make ci`
 
 ### Dependencies
 
@@ -102,7 +69,13 @@ Declared in `build.sbt`:
 | `org.scalatest::scalatest` | 3.2.19 (Test) | The test suite |
 
 
-## An app is configuration over this library
+## Application Configuration
+
+An application is configuration over this library: `FormBuilderApp` holds everything that varies
+between applications (its ID, URL prefix, locales, and any custom node or input types), and
+`FormBuilder.run(app, args)` acts as the entry point for new applications. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full extension model.
+
 
 ```scala
 package gov.irs.hellotax
@@ -145,9 +118,3 @@ in `credit-assistant/`, keeps its resources under `credit-assistant/`, and serve
 
 Adding an application's name, URL segment or storage prefix to a file in this library is a sign the
 value belongs in that application's `FormBuilderApp` instead.
-
-To start a new application, run the cookiecutter rather than copying an existing one:
-
-```bash
-cookiecutter github.com/IRS-Public/form-builder-template
-```

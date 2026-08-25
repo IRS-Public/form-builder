@@ -1,30 +1,26 @@
 # Form Builder
 
 `gov.irs::form-builder` is a Scala 3 library that turns a flow definition, a fact dictionary, and a
-set of locale files into a multi-language questionnaire site. You describe the pages and questions
-in Flow XML, describe the data behind them in a Fact Dictionary, and provide translations as YAML
+set of locale files into a multi-language questionnaire site. 
+Form Builder extends [Fact Graph](https://github.com/IRS-Public/fact-graph), a separate rules
+engine library, and does not duplicate its evaluation logic. You describe the pages and questions
+in Flow XML, describe the data and business logic behind them in a Fact Dictionary XML, and provide content translations as YAML
 locale files. The library parses all of it, renders every page in every declared language, and
 writes the result to `./out` as plain HTML.
 
-It also ships the browser half of that site inside its own jar. The theme (design tokens, page
-layout, and the styling for every element the generators emit) and the flow runtime (the
-`<fg-set>`, `<fg-collection>`, and `<fg-show>` custom elements, the Fact Graph bootstrap,
-navigation, and validation) live as classpath resources and are extracted into the generated site
-as it builds. One Scala dependency is enough to get a styled, working questionnaire, with no npm
-step required in the application that consumes it.
-
-Form Builder extends [Fact Graph](https://github.com/IRS-Public/fact-graph), a separate rules
-engine library, and does not duplicate its evaluation logic. Form Builder is a generalization of
+Form Builder is a generalization of
 the Scala and presentation code originally developed for two IRS applications, the Tax Withholding
 Estimator and the EITC Assistant (now Credit Assistant); both live today as reference applications
 in [form-builder-examples](https://github.com/IRS-Public/form-builder-examples).
+
+To start a new application rather than copying an existing one, see [Form Builder Template](https://github.com/IRS-Public/form-builder-template), a cookiecutter scaffold for Form Builder applications.
 
 ## Where this fits
 
 | Repository | What it is |
 |---|---|
 | [fact-graph](https://github.com/IRS-Public/fact-graph) | `gov.irs::factgraph`, the rules engine. Cross-compiled to a JVM jar and a Scala.js browser bundle. |
-| **form-builder** (here) | The scaffold: parsers, generators, the Thymeleaf engine, node templates, chrome locales, RELAX NG schema seeds, the theme, and the flow runtime. |
+| form-builder | The scaffold: parsers, generators, the Thymeleaf engine, node templates, chrome locales, RELAX NG schema seeds, the theme, and the flow runtime. |
 | [taxpert](https://github.com/IRS-Public/taxpert) | The optional workspace UI and its companion services (global nav, audit panel, tool panels). An application runs the same without it, and neither package imports the other. |
 | [form-builder-template](https://github.com/IRS-Public/form-builder-template) | A cookiecutter that generates a new Form Builder application, with optional extensions such as the Taxpert workspace. |
 | [form-builder-examples](https://github.com/IRS-Public/form-builder-examples) | Reference applications built on this library: Credit Assistant and the Tax Withholding Estimator. |
@@ -32,47 +28,8 @@ in [form-builder-examples](https://github.com/IRS-Public/form-builder-examples).
 The dependency runs one way: an application requires this library, and this library requires
 Fact Graph. Nothing in this repository imports from an application or from Taxpert.
 
-## Getting started
-
-Requirements: JDK 17 or newer, sbt (pinned to 1.11.4 in `project/build.properties`), and Node 18.18
-or newer for the JavaScript tooling.
-
-Neither this library nor `gov.irs::factgraph` is published to a remote Maven registry, so a local
-publish from a checkout is how every consumer gets them:
-
-```bash
-git clone https://github.com/IRS-Public/fact-graph.git
-cd fact-graph && sbt publishLocal      # -> ~/.ivy2/local/gov.irs/factgraph_3/3.1.0-SNAPSHOT
-
-git clone https://github.com/IRS-Public/form-builder.git
-cd form-builder && sbt publishLocal    # -> ~/.ivy2/local/gov.irs/form-builder_3/0.1.0-SNAPSHOT
-```
-
-`~/.ivy2/local` is already first in sbt's default resolver chain, so `build.sbt` declares no
-resolver entries for either artifact. The version is a `-SNAPSHOT` deliberately: it is a promise
-that the artifact changes, so the edit, `publishLocal`, and rebuild loop this library is developed
-in actually reaches the applications built on it.
-
-```bash
-sbt test              # ScalaTest suite (4 specs, 39 tests) against the Pet Planner fixture
-sbt publishLocal      # writes 0.1.0-SNAPSHOT to ~/.ivy2/local
-sbt scalafmtCheckAll  # check Scala formatting, as CI does
-
-npm install           # once, for the JS lint/test tooling
-npm test              # node --test over tests/*.test.mjs (browser assets)
-npm run lint          # eslint over the shipped theme and flow-runtime JavaScript
-npm run format        # eslint --fix
-```
-
-`package.json` (named `form-builder-assets`) is private and not published to npm. It exists only so
-the JavaScript under `src/main/resources/form-builder/website-static/` is held to the same lint and
-test standard as the rest of the ecosystem's client code.
-
-To start a new application rather than copying an existing one:
-
-```bash
-cookiecutter github.com/IRS-Public/form-builder-template
-```
+## Quickstart
+See [ONBOARDING.md](docs/ONBOARDING.md) for how to get started. 
 
 ## Repository layout
 
@@ -91,11 +48,6 @@ cookiecutter github.com/IRS-Public/form-builder-template
 | `src/test/resources/pet-planner/` | A fictional, non-tax fixture application used by the generator specs |
 | `tests/` | `node --test` suites for the browser assets |
 | `docs/` | Architecture reference, onboarding guide, and internals documentation (see below) |
-
-An application is configuration over this library: `FormBuilderApp` holds everything that varies
-between applications (its ID, URL prefix, locales, and any custom node or input types), and
-`FormBuilder.run(app, args)` is the entire entry point. See
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full extension model.
 
 ## Documentation
 

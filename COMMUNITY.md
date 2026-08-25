@@ -1,14 +1,12 @@
 # Community Guidelines
 
-Form Builder is supported by a dedicated team of individuals fulfilling various roles to ensure its success, security, and alignment with IRS standards and goals.
+Form Builder is supported by individuals fulfilling various roles to ensure its success, security, and alignment with IRS standards and goals.
 
 ## Project Members
 
 | Role                   | Name       | Affiliation |
 |:-----------------------|:-----------|:------------|
 | Maintainer             | @sps-irs   | IRS         |
-| Maintainer             | @petrosgov | IRS         |
-| Contributor            | @rav-gov   | IRS         |
 
 
 See [Form Builder Open Source Community Guidelines](#form-builder-open-source-community-guidelines) on principles and guidelines for participating in this open source project.
@@ -21,7 +19,6 @@ Because this project is currently maintained by a small internal team, the core 
 
 ### Maintainers, Approvers, and Reviewers:
 - @sps-irs
-- @petrosgov
 
 ## Contributors
 

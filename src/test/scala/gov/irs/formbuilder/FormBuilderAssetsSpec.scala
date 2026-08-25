@@ -59,6 +59,17 @@ class FormBuilderAssetsSpec extends AnyFunSpec {
       os.read(target / "theme" / "styles" / "theme.css") should include("@import \"variables.css\";")
     }
 
+    it("writes the Author Mode editor, whose page is this library's") {
+      val target = extractToTempDir()
+      // templates/author-mode.html links both by the vendor path these land on. They lived in
+      // credit-assistant's own website-static/ until they moved here, so every other app served that
+      // page with a 404 for each — it rendered, and could never reach the authoring server. Nothing
+      // about that failure shows up in a build, which is why it is pinned here.
+      assert(os.exists(target / "author-mode" / "js" / "author-mode.js"))
+      assert(os.exists(target / "author-mode" / "styles" / "author-mode.css"))
+      os.read(target / "author-mode" / "js" / "author-mode.js") should include("/author/health")
+    }
+
     it("is idempotent, because Author Mode re-runs the whole build in-process") {
       val target = os.temp.dir(prefix = "form-builder-assets-spec-twice")
       FormBuilderAssets.extractTo(target)

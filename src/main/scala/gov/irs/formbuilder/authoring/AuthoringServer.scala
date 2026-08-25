@@ -56,6 +56,19 @@ object AuthoringServer {
 
   // ─── Server lifecycle ───
 
+  /** The port this API binds when nothing says otherwise. */
+  val defaultPort: Int = 3004
+
+  /** The port it actually binds: `-Dsmol.author.port`, else [[defaultPort]].
+    *
+    * One definition with two readers, and they must agree or Author Mode is silently broken. [[FormBuilder.run]] binds
+    * this port; `generators.AuthorMode` writes it into the page as `<meta name="form-builder:author-port">`, which is
+    * where author-mode.js learns which port to call. An app moving its API — two generated apps on one machine cannot
+    * both hold 3004 — changes the property, and both halves follow.
+    */
+  def configuredPort: Int =
+    sys.props.get("smol.author.port").flatMap(s => Try(s.toInt).toOption).getOrElse(defaultPort)
+
   /** Non-blocking. `host` is loopback by default because this API patches source XML on disk; the docker-compose dev
     * overlay passes "0.0.0.0" so the containerized watcher can reach it.
     */

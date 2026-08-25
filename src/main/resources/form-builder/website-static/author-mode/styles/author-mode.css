@@ -1,0 +1,271 @@
+/* Author Mode view styling.
+   Loaded directly by templates/author-mode.html (a dev-only view, like all-screens),
+   so it stays out of the main.css cascade — same convention as all-screens.css.
+   Reuses USWDS form classes (.usa-input/.usa-textarea/.usa-button/.usa-alert); the
+   rules below only add the layout gaps USWDS doesn't cover. */
+
+/* Blank canvas. layout/main-content.css styles every <main> as a centered white
+   "product experience" card (shadow, rounded corners, wide max-width, banner-adjacent
+   padding). Author Mode is chrome-free, so reset that here: the editor sits on the
+   plain page background under only the global nav, independent of the flow's page layout.
+   The editor reflows to its own width, not the viewport (ADR-004). */
+.author__main {
+  container-type: inline-size;
+  container-name: author;
+  max-width: 55rem;
+  margin: var(--units-4) auto var(--units-8);
+  padding: 0 var(--units-3);
+  background-color: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  min-height: 0;
+}
+
+.author__intro {
+  margin-bottom: var(--units-4);
+}
+
+.author__status {
+  margin-bottom: var(--units-4);
+}
+
+/* ── Editor sections ──────────────────────────────────────────────────────── */
+
+.author__section {
+  border: 1px solid var(--base-lighter);
+  border-radius: 8px;
+  padding: var(--units-3);
+  margin-bottom: var(--units-4);
+  background-color: white;
+}
+
+.author__section-title {
+  margin-top: 0;
+  margin-bottom: var(--units-1);
+}
+
+.author__section-hint {
+  color: var(--base-dark);
+  font-size: var(--font-size-2xs);
+  margin-top: 0;
+  margin-bottom: var(--units-3);
+}
+
+/* Container that JS fills with one or more field editors. */
+.author__fields:empty {
+  display: none;
+}
+
+/* ── A single field editor (label + control + error + Save) ───────────────── */
+
+.author__field {
+  border-top: 1px solid var(--base-lighter);
+  padding-top: var(--units-3);
+  margin-top: var(--units-3);
+}
+.author__field:first-child {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+/* Small helper text under a field label (input-type/gating/limit explanations). */
+.author__field-hint {
+  display: block;
+  margin-bottom: var(--units-1);
+}
+
+.author__field-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--units-2);
+  margin-top: var(--units-105);
+  flex-wrap: wrap;
+}
+
+.author__field-saved {
+  color: var(--success-dark);
+  font-size: var(--font-size-2xs);
+}
+
+.author__field-error[hidden] {
+  display: none;
+}
+
+/* ── Lint panel ───────────────────────────────────────────────────────────── */
+
+.author__lint-results {
+  margin-top: var(--units-2);
+  font-size: var(--font-size-2xs);
+}
+.author__lint-ok {
+  color: var(--success-dark);
+  margin: 0;
+}
+.author__lint-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.author__lint-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--units-1);
+  flex-wrap: wrap;
+  border-left: 4px solid var(--warning);
+  background-color: var(--warning-lighter);
+  padding: var(--units-1) var(--units-2);
+  margin-bottom: var(--units-1);
+  border-radius: 0 4px 4px 0;
+}
+.author__lint-route {
+  color: var(--base-dark);
+}
+
+/* Roomier reading measure once the editor column is wide enough. */
+@container author (min-width: 40rem) {
+  .author__section {
+    padding: var(--units-4);
+  }
+}
+
+/* Keyboard focus is always clearly visible (matches the app's focus token). */
+.author__main :is(input, textarea, select, button):focus-visible {
+  outline: 0.25rem solid var(--blue-40v);
+  outline-offset: 0;
+}
+
+/* ── Create-wizard sub-forms ──────────────────────────────────────────────── */
+
+.author__checkbox {
+  display: flex;
+  align-items: baseline;
+  gap: var(--units-1);
+  margin: var(--units-2) 0;
+  font-weight: 600;
+}
+.author__subform {
+  border-left: 4px solid var(--base-lighter);
+  padding-left: var(--units-2);
+  margin-bottom: var(--units-2);
+}
+.author__subform[hidden],
+.author__tree-host:empty {
+  display: none;
+}
+
+/* ── Derived computation-tree editor (T18) ────────────────────────────────── */
+
+.author-tree {
+  margin-bottom: var(--units-2);
+}
+
+/* One node = a bordered box; nesting depth reads as indentation via the left border
+   accent + the children region's own left padding. */
+.author-tree__node {
+  border: 1px solid var(--base-lighter);
+  border-radius: 6px;
+  padding: var(--units-1) var(--units-2) var(--units-2);
+  margin-bottom: var(--units-1);
+  background-color: var(--base-lightest, #f0f0f0);
+}
+/* Value / reference leaves get a subtler treatment than operator containers. */
+.author-tree__node--value,
+.author-tree__node--dependency,
+.author-tree__node--empty {
+  background-color: white;
+}
+.author-tree__node--slot {
+  border-style: dashed;
+  background-color: transparent;
+}
+
+.author-tree__node-header {
+  display: flex;
+  align-items: center;
+  gap: var(--units-1);
+  margin-bottom: var(--units-1);
+}
+.author-tree__type {
+  max-width: 22rem;
+  margin: 0;
+}
+.author-tree__slot-label {
+  font-weight: 700;
+  color: var(--base-dark);
+  text-transform: uppercase;
+  font-size: var(--font-size-3xs);
+  letter-spacing: 0.03em;
+}
+.author-tree__node-controls {
+  margin-left: auto;
+  display: flex;
+  gap: var(--units-05, 0.25rem);
+}
+.author-tree__icon {
+  border: 1px solid var(--base-light);
+  background-color: white;
+  border-radius: 4px;
+  width: 1.75rem;
+  height: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+}
+.author-tree__icon:hover {
+  background-color: var(--base-lightest, #f0f0f0);
+}
+
+.author-tree__node-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--units-1);
+}
+.author-tree__attr,
+.author-tree__value {
+  display: flex;
+  flex-direction: column;
+  gap: var(--units-05, 0.25rem);
+  font-size: var(--font-size-3xs);
+  color: var(--base-dark);
+  font-weight: 600;
+}
+.author-tree__attr .usa-input,
+.author-tree__attr .usa-select,
+.author-tree__value .usa-input {
+  margin-top: 0;
+  max-width: 26rem;
+}
+
+/* Children indent under their parent so structure is legible at a glance. */
+.author-tree__children {
+  padding-left: var(--units-2);
+  border-left: 3px solid var(--base-lighter);
+  margin-top: var(--units-05, 0.25rem);
+}
+.author-tree__adder {
+  display: flex;
+  align-items: center;
+  gap: var(--units-1);
+  margin-top: var(--units-1);
+  flex-wrap: wrap;
+}
+.author-tree__adder .usa-select {
+  max-width: 18rem;
+  margin: 0;
+}
+.author-tree__add {
+  margin: 0;
+}
+
+/* ── Delete-fact impact preview (T19) ─────────────────────────────────────── */
+
+.author__delete-heading {
+  color: var(--error-dark, #b50909);
+  font-weight: 600;
+  margin: 0 0 var(--units-1);
+}
+.author__delete-ok {
+  color: var(--success-dark);
+  margin: 0 0 var(--units-1);
+}

@@ -36,10 +36,9 @@ object FormBuilder {
     // `-Dsmol.author.host=0.0.0.0` relies on a host-side `127.0.0.1:3004:3004` mapping instead.
     if flags.contains(Flags.authorMode) then {
       val authorHost = sys.props.get("smol.author.host").getOrElse("localhost")
-      val authorPort = sys.props
-        .get("smol.author.port")
-        .flatMap(s => Try(s.toInt).toOption)
-        .getOrElse(3004)
+      // Resolved by the server itself, so the port bound here and the one the generated page tells
+      // author-mode.js to call cannot drift apart.
+      val authorPort = authoring.AuthoringServer.configuredPort
       try authoring.AuthoringServer.start(authorHost, authorPort, flags, app)
       catch {
         case _: java.net.BindException =>

@@ -2,7 +2,19 @@
 <html th:lang="${languageCode}">
 <head>
     <meta th:replace="fragments/head">
-    <link rel="stylesheet" th:href="|${basePath}/resources/styles/components/author-mode.css|">
+    <!--/* The editor's own stylesheet, and its module at the foot of this file. Both ship inside this
+           jar and are extracted to resources/vendor/form-builder/ by FormBuilderAssets, exactly as
+           the theme and the flow runtime are — this page is the library's, so what makes it work is
+           the library's too. They lived in credit-assistant's own website-static/ until they were
+           moved here, which meant every other app served this page with a 404 for each: a shell that
+           rendered and could never connect. */-->
+    <link rel="stylesheet" th:href="|${basePath}/resources/vendor/form-builder/author-mode/styles/author-mode.css|">
+    <!--/* Which port the authoring API is on, for author-mode.js — the same server-to-browser channel
+           fragments/head.html uses for form-builder:storage-prefix and form-builder:base-path.
+           Here rather than in that fragment because this is the only page it means anything on: a
+           flow page has no authoring server to call, and head.html's tags are deliberately ungated.
+           The value comes from AuthoringServer.configuredPort, which is also what run binds. */-->
+    <meta name="form-builder:author-port" th:content="${authorPort}">
 </head>
 
 <body class="author">
@@ -17,8 +29,7 @@
      Suite as the current destination. -->
 <div class="app-container">
     <taxpert-global-nav
-        app="credit-assistant"
-        th:attr="active=${navActive}"
+        th:attr="app=${app.appId}, active=${navActive}"
         workspace-label="TAXPERT WORKSPACE"
         workspace-locked="true"></taxpert-global-nav>
 
@@ -183,6 +194,6 @@
     </main>
 </div>
 
-<script type="module" th:src="|${basePath}/resources/js/author-mode.js|"></script>
+<script type="module" th:src="|${basePath}/resources/vendor/form-builder/author-mode/js/author-mode.js|"></script>
 </body>
 </html>

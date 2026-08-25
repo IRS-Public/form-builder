@@ -13,6 +13,10 @@ the Scala and presentation code originally developed for two IRS applications, t
 Estimator (TWE) and the EITC Assistant; both live today as reference applications
 in [form-builder-examples](https://github.com/IRS-Public/form-builder-examples). See TWE's [ADR 001](https://github.com/IRS-Public/tax-withholding-estimator/blob/main/docs/adr/001-twe-architecture.md) for a deeper understanding of the architectural choices behind Form Builder.
 
+To understand the difference between Taxpert, Form Builder and the Fact Graph, see [this doc]
+(https://github.
+com/IRS-Public/taxpert/blob/main/docs/adr/taxpert-form-builder-fact-graph.md).
+
 To start a new application rather than copying an existing one, see [Form Builder Template](https://github.com/IRS-Public/form-builder-template), a cookiecutter scaffold for Form Builder applications.
 
 ## Where this fits

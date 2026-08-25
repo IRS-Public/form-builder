@@ -10,8 +10,8 @@ writes the result to `./out` as plain HTML.
 
 Form Builder is a generalization of
 the Scala and presentation code originally developed for two IRS applications, the Tax Withholding
-Estimator and the EITC Assistant (now Credit Assistant); both live today as reference applications
-in [form-builder-examples](https://github.com/IRS-Public/form-builder-examples).
+Estimator (TWE) and the EITC Assistant; both live today as reference applications
+in [form-builder-examples](https://github.com/IRS-Public/form-builder-examples). See TWE's [ADR 001](https://github.com/IRS-Public/tax-withholding-estimator/blob/main/docs/adr/001-twe-architecture.md) for a deeper understanding of the architectural choices behind Form Builder.
 
 To start a new application rather than copying an existing one, see [Form Builder Template](https://github.com/IRS-Public/form-builder-template), a cookiecutter scaffold for Form Builder applications.
 

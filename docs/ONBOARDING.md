@@ -1,6 +1,15 @@
 # ONBOARDING
 
-To start a new application rather than copying an existing one, see [Form Builder Template](https://github.com/IRS-Public/form-builder-template), a cookiecutter scaffold for Form Builder applications.
+This document covers working on the Form Builder library itself: the toolchain it needs, its build
+and test commands, its dependencies, and the `FormBuilderApp` an application configures it through.
+
+**Setting up and running an application is not documented here.** That lives in one place for the
+whole ecosystem, the
+[QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/QUICKSTART.md) in the taxpert
+repository, which covers the Docker path, the native path, and what to run after changing a library
+so the change reaches everything that consumes it. To start a new application rather than copying an
+existing one, see
+[Form Builder Template](https://github.com/IRS-Public/form-builder-template).
 
 ## Requirements
 
@@ -11,28 +20,12 @@ To start a new application rather than copying an existing one, see [Form Builde
 | Scala | 3.7.2, set by `build.sbt` | Everything |
 | Node | 18.18 or newer, which is what the pinned eslint 9 requires | Only for linting and testing the shipped browser assets |
 
-### Fetch the Fact Graph
-
-Fact Graph is a separate library, and isn't on a public artifact registry today, so the way to get
-it is a local publish from a checkout:
+This library depends on `gov.irs::factgraph`, which isn't on a public artifact registry, so building
+here needs a local publish of it first:
 
 ```bash
 git clone https://github.com/IRS-Public/fact-graph.git
-cd fact-graph && sbt publishLocal    # -> ~/.ivy2/local/gov.irs/factgraph_3/3.1.0-SNAPSHOT
-```
-
-`~/.ivy2/local` is already first in sbt's default resolver chain, so `build.sbt` here carries no
-resolver entry for it.
-
-### Consuming this library
-
-Form Builder is published to the local Ivy cache with `sbt publishLocal` from a checkout, and that is
-how every consumer in this ecosystem gets it. No credentials, and no resolver entry in the consuming
-build:
-
-```bash
-git clone https://github.com/IRS-Public/form-builder.git
-cd form-builder && sbt publishLocal    # -> ~/.ivy2/local/gov.irs/form-builder_3/0.1.0-SNAPSHOT/
+cd fact-graph && sbt publishLocal     # -> ~/.ivy2/local/gov.irs/factgraph_3/3.1.0-SNAPSHOT
 ```
 
 ## Build and test
@@ -44,38 +37,24 @@ sbt scalafmtAll       # format the Scala
 sbt scalafmtCheckAll  # check formatting, as CI does
 
 npm install           # once, for the JS tooling
-npm test              # node --test over tests/*.test.mjs
-npm run lint          # eslint over the shipped browser assets
+npm test              # node --test, covering the browser assets shipped in the jar
+npm run lint          # eslint over those assets
 npm run format        # eslint --fix
 ```
 
-After publishing a change, re-run **any** reference or dependent applications' `make ci`
+Publishing this library is how every consumer in the ecosystem consumes it. Nothing watches across
+repository boundaries, so each consumer needs a rebuild afterwards.  The
+[QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/QUICKSTART.md) has the commands per
+consumer.
 
-### Dependencies
-
-Declared in `build.sbt`:
-
-| Dependency | Version | Used for |
-|---|---|---|
-| `gov.irs::factgraph` | 3.1.0-SNAPSHOT | The fact dictionary and evaluation engine |
-| `org.scala-lang.modules::scala-xml` | 2.4.0 | Parsing flow and fact XML |
-| `com.lihaoyi::os-lib` | 0.11.4 | All filesystem access |
-| `org.thymeleaf:thymeleaf` | 3.1.5.RELEASE | Template rendering |
-| `org.jsoup:jsoup` | 1.21.1 | Post-processing rendered HTML |
-| `io.circe::circe-{core,generic,parser}` | 0.14.15 | JSON output |
-| `io.circe::circe-yaml`, `circe-yaml-scalayaml` | 0.16.0 | Locale YAML |
-| `com.github.tototoshi::scala-csv` | 2.0.0 | Scenario spreadsheets |
-| `org.smol-utils::smol` | 0.1.2 | The embedded dev static server |
-| `org.scalatest::scalatest` | 3.2.19 (Test) | The test suite |
-
-
-## Application Configuration
+## Application configuration
 
 An application is configuration over this library: `FormBuilderApp` holds everything that varies
 between applications (its ID, URL prefix, locales, and any custom node or input types), and
-`FormBuilder.run(app, args)` acts as the entry point for new applications. See
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full extension model.
-
+`FormBuilder.run(app, args)` is the entry point. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for the full extension model and every build flag, and
+[internals/app-entry-and-assets.md](internals/app-entry-and-assets.md) for what each field
+actually controls at runtime.
 
 ```scala
 package gov.irs.hellotax

@@ -1,6 +1,6 @@
 # Form Builder
 
-`gov.irs::form-builder` is a Scala 3 library that turns a flow definition, a fact dictionary, and a
+Form Builder is a Scala 3 library that turns a flow definition, a fact dictionary, and a
 set of locale files into a multi-language questionnaire site. 
 Form Builder extends [Fact Graph](https://github.com/IRS-Public/fact-graph), a separate rules
 engine library, and does not duplicate its evaluation logic. You describe the pages and questions
@@ -13,11 +13,20 @@ the Scala and presentation code originally developed for two IRS applications, t
 Estimator (TWE) and the EITC Assistant; both live today as reference applications
 in [form-builder-examples](https://github.com/IRS-Public/form-builder-examples). See TWE's [ADR 001](https://github.com/IRS-Public/tax-withholding-estimator/blob/main/docs/adr/001-twe-architecture.md) for a deeper understanding of the architectural choices behind Form Builder.
 
-To understand the difference between Taxpert, Form Builder and the Fact Graph, see [this doc]
-(https://github.
-com/IRS-Public/taxpert/blob/main/docs/adr/taxpert-form-builder-fact-graph.md).
+To understand the difference between Taxpert, Form Builder and the Fact Graph, see
+[this doc](https://github.com/IRS-Public/taxpert/blob/main/docs/adr/taxpert-form-builder-fact-graph.md).
 
 To start a new application rather than copying an existing one, see [Form Builder Template](https://github.com/IRS-Public/form-builder-template), a cookiecutter scaffold for Form Builder applications.
+
+## Quickstart
+[docs/ONBOARDING.md](docs/ONBOARDING.md) covers working on this library itself, including its toolchain, its
+build and test commands, its dependencies, and a worked example of a minimal `FormBuilderApp`.
+
+**Setting up and running a whole application is documented in one place for the whole ecosystem**,
+the [QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/QUICKSTART.md) in the taxpert
+repository. It covers the prerequisites, the Docker path, the native path, what to run after
+changing a library so the change reaches everything that consumes it, and the failure modes you are
+most likely to hit.
 
 ## Where this fits
 
@@ -32,37 +41,19 @@ To start a new application rather than copying an existing one, see [Form Builde
 The dependency runs one way: an application requires this library, and this library requires
 Fact Graph. Nothing in this repository imports from an application or from Taxpert.
 
-## Quickstart
-See [ONBOARDING.md](docs/ONBOARDING.md) for how to get started. 
+### After changing this library
 
-## Repository layout
+Nothing watches across repository boundaries. Republish, then rebuild whatever consumes it:
 
-| Path | What is in it |
-|---|---|
-| `build.sbt` | `gov.irs::form-builder`, version `0.1.0-SNAPSHOT`, and the dependency list |
-| `src/main/scala/gov/irs/formbuilder/` | The entry point (`FormBuilder`, `FormBuilderApp`), asset extraction, the Thymeleaf engine, fact dictionary loading, locale layering, and build flags |
-| `.../parser/` | Flow XML parsed into a tree of `FlowNode` case classes |
-| `.../generators/` | `Website`, `AllScreens`, `AuthorMode`, `FlowManifest`, `FormBuilderGraph` |
-| `.../authoring/` | The Author Mode HTTP backend |
-| `src/main/resources/form-builder/templates/` | The Thymeleaf templates: page shells, node templates (`nodes/`, including `nodes/inputs/`), and shared fragments (`fragments/`) |
-| `.../locales/` | Chrome strings shared by every application, in 8 languages |
-| `.../schema/` | `FlowConfig.rng` and `FactDictionaryModule.rng`, seed copies only; a generated application keeps and owns its own |
-| `.../website-static/theme/` | The CSS extracted into a built site's `vendor/form-builder/` |
-| `.../website-static/flow-runtime/` | The ES modules behind the flow's custom elements |
-| `src/test/resources/pet-planner/` | A fictional, non-tax fixture application used by the generator specs |
-| `tests/` | `node --test` suites for the browser assets |
-| `docs/` | Architecture reference, onboarding guide, and internals documentation (see below) |
+```bash
+sbt test publishLocal
+npm test && npm run lint      # the browser assets shipped in the jar
+```
 
-## Documentation
-
-| Document | Covers |
-|---|---|
-| [docs/ONBOARDING.md](docs/ONBOARDING.md) | Environment setup, dependency versions, build and test commands, and a worked example of a minimal `FormBuilderApp` |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Full repository layout, build flags, and the five extension points an application uses to customize this library |
-| [docs/internals/app-entry-and-assets.md](docs/internals/app-entry-and-assets.md) | `FormBuilder.run`, template resolution, locale layering, and browser-asset extraction |
-| [docs/internals/flow-parsing-and-generation.md](docs/internals/flow-parsing-and-generation.md) | The parser and generator packages: the node model, conditions, and page splitting |
-| [docs/internals/flow-runtime.md](docs/internals/flow-runtime.md) | The browser half: custom elements, runtime configuration, and validation |
-| [docs/internals/author-mode.md](docs/internals/author-mode.md) | The authoring server, its endpoints, and how it patches source XML |
+The theme, the flow runtime and the Author Mode editor ship inside the jar and are extracted into
+each generated site's `resources/vendor/form-builder/` on every build, so there is no separate copy
+step for them. What each consumer needs afterwards is in the taxpert
+[QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/QUICKSTART.md#propagating-a-change).
 
 ## Contributing
 

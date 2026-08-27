@@ -23,7 +23,7 @@ To start a new application rather than copying an existing one, see [Form Builde
 build and test commands, its dependencies, and a worked example of a minimal `FormBuilderApp`.
 
 **Setting up and running a whole application is documented in one place for the whole ecosystem**,
-the [QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/QUICKSTART.md) in the taxpert
+the [QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/docs/QUICKSTART.md) in the taxpert
 repository. It covers the prerequisites, the Docker path, the native path, what to run after
 changing a library so the change reaches everything that consumes it, and the failure modes you are
 most likely to hit.
@@ -53,7 +53,7 @@ npm test && npm run lint      # the browser assets shipped in the jar
 The theme, the flow runtime and the Author Mode editor ship inside the jar and are extracted into
 each generated site's `resources/vendor/form-builder/` on every build, so there is no separate copy
 step for them. What each consumer needs afterwards is in the taxpert
-[QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/QUICKSTART.md#propagating-a-change).
+[QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/docs/QUICKSTART.md#propagating-a-change).
 
 ## Contributing
 

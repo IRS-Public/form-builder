@@ -5,7 +5,7 @@ and test commands, its dependencies, and the `FormBuilderApp` an application con
 
 **Setting up and running an application is not documented here.** That lives in one place for the
 whole ecosystem, the
-[QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/QUICKSTART.md) in the taxpert
+[QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/docs/QUICKSTART.md) in the taxpert
 repository, which covers the Docker path, the native path, and what to run after changing a library
 so the change reaches everything that consumes it. To start a new application rather than copying an
 existing one, see
@@ -44,7 +44,7 @@ npm run format        # eslint --fix
 
 Publishing this library is how every consumer in the ecosystem consumes it. Nothing watches across
 repository boundaries, so each consumer needs a rebuild afterwards.  The
-[QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/QUICKSTART.md) has the commands per
+[QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/docs/QUICKSTART.md) has the commands per
 consumer.
 
 ## Application configuration

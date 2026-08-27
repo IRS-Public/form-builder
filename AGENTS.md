@@ -20,7 +20,7 @@ orientation plus the rules that are easiest to break.
 | **form-builder** (here) | The scaffold. Parsers, generators, the Thymeleaf engine, node templates, chrome locales, RELAX NG seeds, the theme, the flow runtime, Author Mode. |
 | [taxpert](https://github.com/IRS-Public/taxpert) | The optional workspace UI and its companion services. An application runs the same without it. |
 | [form-builder-template](https://github.com/IRS-Public/form-builder-template) | Cookiecutter that generates a new application. |
-| [form-builder-examples](https://github.com/IRS-Public/form-builder-examples) | Credit Assistant (EITC) and the Tax Withholding Estimator. |
+| [form-builder-examples](https://github.com/IRS-Public/form-builder-examples) | The reference applications: Credit Assistant (EITC), the Tax Withholding Estimator, and Benefits Enrollment. |
 
 The dependency runs one way. An application requires this library. Taxpert is tooling laid over an
 application, and neither package imports the other. Nothing in this repository may name a path
@@ -31,10 +31,12 @@ that every hit is prose.
 
 ## Requirements and commands
 
-JDK 17 or newer, sbt, and Node 20 or newer for the JavaScript tooling.
+JDK 21 or newer, sbt, and Node 20 or newer for the JavaScript tooling. The full prerequisite
+table is in the ecosystem
+[QUICKSTART.md](https://github.com/IRS-Public/taxpert/blob/main/docs/QUICKSTART.md#prerequisites).
 
 ```bash
-sbt test            # ScalaTest. Four specs, 39 tests, all against the Pet Planner fixture
+sbt test            # ScalaTest. Four suites, 40 tests, all against the Pet Planner fixture
 sbt publishLocal    # writes 0.1.0-SNAPSHOT to ~/.ivy2/local, where applications resolve it
 npm test            # node --test over the browser assets in tests/
 npm run lint        # eslint over website-static JavaScript
@@ -45,8 +47,8 @@ Neither this library nor `gov.irs::factgraph` is published to a remote registry,
 from a checkout is the only way either one reaches an application. `build.sbt` declares no
 resolvers for that reason.
 
-After a change here, run `sbt test publishLocal`, then run `make ci` in **both** example
-applications. The second application is what catches an assumption that only holds for the first.
+After a change here, run `sbt test publishLocal`, then run `make ci` in **every** example
+application. A second application is what catches an assumption that only holds for the first.
 
 ## Layout
 
@@ -123,8 +125,9 @@ name, URL segment, and storage prefix belong in its own `FormBuilderApp`, never 
 
 ## Deeper reading
 
-Four documents under `docs/internals/` cover one area each, and the source files point at them
+Five documents under `docs/internals/` cover one area each, and the source files point at them
 rather than restating them: [app-entry-and-assets.md](docs/internals/app-entry-and-assets.md),
 [flow-parsing-and-generation.md](docs/internals/flow-parsing-and-generation.md),
-[flow-runtime.md](docs/internals/flow-runtime.md), and
-[author-mode.md](docs/internals/author-mode.md).
+[flow-runtime.md](docs/internals/flow-runtime.md),
+[author-mode.md](docs/internals/author-mode.md), and
+[app-extensions.md](docs/internals/app-extensions.md).

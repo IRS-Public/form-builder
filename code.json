@@ -1,0 +1,80 @@
+{
+    "name": "form-builder",
+    "version": "0.1.0",
+    "organization": "Internal Revenue Service",
+    "description": "Form Builder is a Scala 3 library that turns a flow definition, a fact dictionary, and a set of locale files into a multi-language questionnaire site.",
+    "longDescription": "Form Builder extends Fact Graph, a separate rules engine library, and does not duplicate its evaluation logic. Pages and questions are described in Flow XML, the data and business logic behind them in a Fact Dictionary XML, and content translations as YAML locale files; the library parses all of it, renders every page in every declared language, and writes the result to disk as plain HTML. It ships the parsers, generators, Thymeleaf engine, node templates, chrome locales, and RELAX NG schema seeds, plus the browser assets every generated application renders with, the theme and the flow runtime, inside the same jar. Form Builder is a generalization of the Scala and presentation code originally developed for two IRS applications, the Tax Withholding Estimator and the EITC Assistant, both of which live today as reference applications in form-builder-examples.",
+    "status": "Development",
+    "permissions": {
+        "licenses": [
+            {
+                "name": "CC0-1.0",
+                "URL": "https://github.com/IRS-Public/form-builder/blob/main/LICENSE.md"
+            }
+        ],
+        "usageType": [
+            "openSource"
+        ],
+        "exemptionText": ""
+    },
+    "repositoryHost": [
+        "github.com/IRS-Public"
+    ],
+    "repositoryURL": "https://github.com/IRS-Public/form-builder",
+    "repositoryVisibility": "public",
+    "homepageURL": "https://github.com/IRS-Public/form-builder",
+    "disclaimerURL": "https://github.com/IRS-Public/form-builder?tab=readme-ov-file#legal-disclaimer-public-repository-access",
+    "vcs": "git",
+    "platforms": [
+        "web"
+    ],
+    "categories": [
+        "other"
+    ],
+    "softwareType": [
+        "libraryModule"
+    ],
+    "languages": [
+        "Scala",
+        "HTML",
+        "CSS",
+        "JavaScript"
+    ],
+    "sbom": "https://github.com/IRS-Public/form-builder/network/dependencies",
+    "relatedCode": [
+        "https://github.com/IRS-Public/fact-graph",
+        "https://github.com/IRS-Public/taxpert",
+        "https://github.com/IRS-Public/form-builder-template",
+        "https://github.com/IRS-Public/form-builder-examples",
+        "https://github.com/IRS-Public/tax-withholding-estimator",
+        "https://github.com/IRS-Public/eitc-assistant"
+    ],
+    "reusedCode": [
+        "https://github.com/IRS-Public/fact-graph",
+        "https://github.com/IRS-Public/tax-withholding-estimator",
+        "https://github.com/IRS-Public/eitc-assistant"
+    ],
+    "tags": [
+        "Open Source",
+        "IRS",
+        "Tax",
+        "Fact Graph",
+        "Form Builder",
+        "Scala"
+    ],
+    "feedbackMechanism": "https://github.com/IRS-Public/form-builder/issues",
+    "AIUseCaseID": "0",
+    "repositoryType": "library",
+    "userInput": true,
+    "group": "IRS/IT",
+    "userType": [
+        "government",
+        "developers"
+    ],
+    "maturityModelTier": 2,
+    "date": {
+        "created": "2026-08-10T20:36:38Z",
+        "lastModified": "2026-08-27T13:10:11Z",
+        "metadataLastUpdated": "2026-08-27T18:11:45Z"
+    }
+}

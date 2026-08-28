@@ -1,13 +1,19 @@
 // `<fg-set>`: one question, bound to one fact path.
 //
 // The markup it wires is rendered server-side, so every branch of the `inputType` switch has a
-// matching template under templates/nodes/inputs/. Adding an input type is two edits, not one.
+// matching template under templates/nodes/inputs/. Adding an input type here is two edits, not one.
+//
+// The switches below are the runtime's built-in types and are deliberately closed: an application
+// adds a type through registerInputType() in input-types.js rather than by growing five switch
+// statements it does not own. Each `default` consults that registry before warning, so an
+// unregistered type still reports itself instead of failing silently.
 //
 // See docs/internals/flow-runtime.md.
 
 import { fg } from './fact-graph-engine.js'
 import { factGraph, saveFactGraph } from './fg-fact-graph.js'
 import { showOrHideAllElements } from './fg-conditions.js'
+import { getInputType } from './input-types.js'
 
 class FgSet extends HTMLElement {
   constructor () {
@@ -32,6 +38,35 @@ class FgSet extends HTMLElement {
     this.inputType = this.getAttribute('inputtype')
     this.inputs = this.querySelectorAll('input, select')
     this.optional = this.getAttribute('optional') === 'true'
+
+    this.attachInputListeners()
+
+    this.path = this.getAttribute('path')
+    this.error = null
+
+    console.debug(`Adding fg-set with path ${this.path} of inputType ${this.inputType}`)
+
+    // bind rather than an arrow function, so disconnectedCallback can remove the same reference.
+    this.clear = this.clear.bind(this)
+    document.addEventListener('fg-clear', this.clear)
+
+    this.render()
+  }
+
+  /**
+   * Wire whichever events commit this question's answer.
+   *
+   * A registered input type may supply its own `attach`; anything else — including a registered
+   * type that does not — takes the blur/Tab default, recorded in `usingDefaultListeners` so
+   * reattachInputListeners() can take it back off again.
+   */
+  attachInputListeners () {
+    const handlers = getInputType(this.inputType)
+    if (handlers?.attach) {
+      this.usingDefaultListeners = false
+      handlers.attach(this)
+      return
+    }
 
     switch (this.inputType) {
       // Intentionally not exhaustive. An unlisted type falls through to the blur/tab default.
@@ -65,22 +100,32 @@ class FgSet extends HTMLElement {
         }
         break
       default:
+        this.usingDefaultListeners = true
+        this.blurListener = () => this.onChange()
         for (const input of this.inputs) {
-          input.addEventListener('blur', () => this.onChange())
+          input.addEventListener('blur', this.blurListener)
           input.addEventListener('keydown', this.tabListener)
         }
     }
+  }
 
-    this.path = this.getAttribute('path')
-    this.error = null
-
-    console.debug(`Adding fg-set with path ${this.path} of inputType ${this.inputType}`)
-
-    // bind rather than an arrow function, so disconnectedCallback can remove the same reference.
-    this.clear = this.clear.bind(this)
-    document.addEventListener('fg-clear', this.clear)
-
-    this.render()
+  /**
+   * Called by registerInputType() when a type is registered after this element connected.
+   *
+   * Only the default listeners are removable — the built-in switch branches above use anonymous
+   * arrow functions, but no built-in type is ever re-registered, so they are never the ones being
+   * replaced. A registration that arrives late for a type that took the default is the whole case
+   * this handles.
+   */
+  reattachInputListeners () {
+    if (this.usingDefaultListeners) {
+      for (const input of this.inputs) {
+        input.removeEventListener('blur', this.blurListener)
+        input.removeEventListener('keydown', this.tabListener)
+      }
+    }
+    this.attachInputListeners()
+    this.setInputValueFromFactValue()
   }
 
   disconnectedCallback () {
@@ -236,7 +281,9 @@ class FgSet extends HTMLElement {
         break
       }
       default: {
-        console.warn(`Unknown input type "${this.inputType}" for input with path "${this.path}"`)
+        const handlers = getInputType(this.inputType)
+        if (handlers) handlers.clear(this)
+        else console.warn(`Unknown input type "${this.inputType}" for input with path "${this.path}"`)
       }
     }
 
@@ -306,7 +353,9 @@ class FgSet extends HTMLElement {
         break
       }
       default: {
-        console.warn(`Unknown input type "${this.inputType}" for input with path "${this.path}"`)
+        const handlers = getInputType(this.inputType)
+        if (handlers) handlers.write(this, value, fact)
+        else console.warn(`Unknown input type "${this.inputType}" for input with path "${this.path}"`)
       }
     }
   }
@@ -340,6 +389,8 @@ class FgSet extends HTMLElement {
         return this.querySelector('input')?.value
       }
       default: {
+        const handlers = getInputType(this.inputType)
+        if (handlers) return handlers.read(this)
         console.warn(`Unknown input type "${this.inputType}" for input with path "${this.path}"`)
         return undefined
       }
@@ -393,7 +444,9 @@ class FgSet extends HTMLElement {
         break
       }
       default: {
-        console.warn(`Unknown input type "${this.inputType}" for input with path "${this.path}"`)
+        const handlers = getInputType(this.inputType)
+        if (handlers) handlers.clear(this)
+        else console.warn(`Unknown input type "${this.inputType}" for input with path "${this.path}"`)
       }
     }
     factGraph.delete(this.path)

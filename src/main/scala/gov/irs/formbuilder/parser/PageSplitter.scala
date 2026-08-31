@@ -28,6 +28,15 @@ object PageSplitter {
     }
 
     if (questionIndices.isEmpty) {
+      // No question at the top level does not mean no question. A transpiled flow wraps each of its
+      // source screens in a conditional block — `<div class="df-screen" condition="…">` — and
+      // `flatten` deliberately does not look through one: the condition that decides whether the
+      // screen shows at all lives in that element's own attributes rather than in a parsed field, so
+      // flattening it away would leave every question inside it unconditional. Cutting *between* the
+      // blocks keeps each wrapper whole, which is both correct and the right grain — one emitted page
+      // per source screen.
+      val blocks = topLevelUnits(page.children).filterNot(_.isInstanceOf[Modal]).toVector
+      if (blocks.exists(containsQuestion)) return splitByBlocks(page, blocks, modals)
       return List(page.copy(sourcePageRoute = Some(page.route)))
     }
 
@@ -58,6 +67,81 @@ object PageSplitter {
       )
     }
     emitted.toList
+  }
+
+  /** Cut the page between its top-level blocks, one emitted Page per block.
+    *
+    * The counterpart to [[splitPerQuestion]] for a flow whose questions are nested inside wrapper elements rather than
+    * sitting beside each other. Each block is emitted whole — tags, attributes and all — so a condition on the wrapper
+    * still gates exactly what it gated before.
+    *
+    * Every block becomes a page, whether or not it has a question — a block with prose and no question is a screen
+    * someone wrote to be read. Nothing is merged, and that is the difference from [[splitByH3]]: the reason that one
+    * merges is to keep a question-less group from rendering as a page with nothing on it, and here the block's own
+    * condition answers that instead. It becomes the page's gate, so a block that does not apply is skipped by the
+    * navigator rather than shown empty.
+    */
+  private def splitByBlocks(page: Page, blocks: Vector[FlowNode], modals: Seq[Modal]): List[Page] = {
+    val keepOriginalRoute = blocks.size == 1
+    val used = mutable.Set.empty[String]
+
+    blocks.zipWithIndex.map { case (block, i) =>
+      val children: Seq[FlowNode] = Seq(Section(Seq(block))) ++ modals
+      val route =
+        if (keepOriginalRoute) page.route
+        else {
+          // Two screens on one page can name the same fact or carry the same heading, so the slug is
+          // made unique here rather than emitting a duplicate route the generator would overwrite.
+          val base = blockSlug(Seq(block), i)
+          val slug = if (used.add(base)) base else Iterator.from(2).map(n => s"$base-$n").find(used.add).get
+          joinRoute(page.route, slug)
+        }
+      Page(
+        translationContext = page.translationContext,
+        route = route,
+        exclude = page.exclude,
+        children = children,
+        sourcePageRoute = Some(page.route),
+        module = page.module,
+        gate = block match {
+          case h: HtmlWithChildren => h.condition
+          case _                   => None
+        },
+      )
+    }.toList
+  }
+
+  /** A block's own name: its heading if it has one, else the fact its first question writes. */
+  private def blockSlug(group: Seq[FlowNode], idx: Int): String =
+    headingIn(group)
+      .map(h => slugFromHeadingText(h.htmlElement.child.mkString))
+      .filter(_.nonEmpty)
+      .orElse(questionIn(group).map(slugFor))
+      .getOrElse(s"screen-${idx + 1}")
+
+  private def headingIn(nodes: Seq[FlowNode]): Option[HtmlLeafNode] = nodes.iterator.flatMap {
+    case h: HtmlLeafNode if Set("h2", "h3", "h4").contains(h.htmlElement.label) => Iterator(h)
+    case h: HtmlWithChildren                                                    => headingIn(h.children).iterator
+    case s: Section                                                             => headingIn(s.children).iterator
+    case _                                                                      => Iterator.empty
+  }.nextOption()
+
+  private def questionIn(nodes: Seq[FlowNode]): Option[FlowNode] = nodes.iterator.flatMap {
+    case fg: FgSet           => Iterator(fg: FlowNode)
+    case fg: FgCollection    => Iterator(fg: FlowNode)
+    case h: HtmlWithChildren => questionIn(h.children).iterator
+    case s: Section          => questionIn(s.children).iterator
+    case d: FgDetail         => questionIn(d.children).iterator
+    case a: FgAlert          => questionIn(a.children).iterator
+    case _                   => Iterator.empty
+  }.nextOption()
+
+  private def containsQuestion(node: FlowNode): Boolean = questionIn(Seq(node)).isDefined
+
+  /** A page's children with `<section>` wrappers seen through, so a real block is a unit and a grouping element is not. */
+  private def topLevelUnits(nodes: Seq[FlowNode]): Seq[FlowNode] = nodes.flatMap {
+    case s: Section => topLevelUnits(s.children)
+    case other      => Seq(other)
   }
 
   /** Cut the page along its top-level `<h3>` siblings, one emitted Page per heading. Content before the first heading
@@ -121,7 +205,11 @@ object PageSplitter {
 
   private def slugFromHeadingText(raw: String): String = {
     val noTags = raw.replaceAll("<[^>]+>", " ")
-    val alphaSpace = noTags.replaceAll("[^A-Za-z0-9\\s]", " ").trim
+    // Apostrophes are removed rather than turned into a separator, so "Let's get some basic" gives
+    // `lets-get-some-basic` instead of `let-s-get-some` — an apostrophe is inside a word, not between
+    // two. Both the straight and the typographic one, since authored prose uses the second.
+    val noApostrophes = noTags.replaceAll("['\u2019]", "")
+    val alphaSpace = noApostrophes.replaceAll("[^A-Za-z0-9\\s]", " ").trim
     if (alphaSpace.isEmpty) ""
     else alphaSpace.toLowerCase.split("\\s+").filter(_.nonEmpty).take(4).mkString("-")
   }

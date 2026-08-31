@@ -184,6 +184,28 @@ object Website {
       }
       val topicIndex: Map[String, Int] = topicReps.zipWithIndex.map { case (p, i) => p.stepperRoute -> i }.toMap
 
+      // The same navigation, one level coarser: one entry per flow module rather than per page.
+      //
+      // A step indicator with one segment per page reads well for a ten-page flow and not at all for
+      // a large one — Direct File's 138 pages run off the side of the viewport, and "1 of 138" is not
+      // a number anyone is tracking. The module is the unit a taxpayer recognises ("Income sources",
+      // "Filing status"), and it is already known: `resolveModule` stamps it as each `<module src>` is
+      // spliced in, and it is what Browse All groups by.
+      //
+      // Exposed rather than switched to. `sections`/`sectionIndex` sit beside `pages`/`stepIndex` and
+      // the shipped fragment still renders the per-page form, so no existing application's output
+      // moves; one that wants sections overrides `fragments/usa-step-indicator.html` and reads these.
+      // The label is deliberately not resolved here: which locale key names a module is the
+      // application's convention, not the library's, and the template can build the key it wants from
+      // `module`.
+      val sectionReps: List[gov.irs.formbuilder.parser.Page] = {
+        val seen = scala.collection.mutable.LinkedHashMap.empty[String, gov.irs.formbuilder.parser.Page]
+        navPages.foreach(p => seen.getOrElseUpdate(p.moduleSlug, p))
+        seen.values.toList
+      }
+      val sectionIndexBySlug: Map[String, Int] =
+        sectionReps.zipWithIndex.map { case (p, i) => p.moduleSlug -> i }.toMap
+
       flow.pages.zipWithIndex.map { (page, index) =>
         val titleValue = templateEngine.messageResolver.resolveMessage(page.titleKey)
         val titlePrefix = templateEngine.messageResolver.resolveMessage("title.prefix")
@@ -200,6 +222,7 @@ object Website {
 
         val stepIndex = topicIndex.getOrElse(page.stepperRoute, 0)
         val stepTotal = topicReps.size
+        val sectionIndex = sectionIndexBySlug.getOrElse(page.moduleSlug, 0)
 
         val context = new Context()
         val currentPageRoute = if (!page.route.endsWith("/")) {
@@ -213,6 +236,20 @@ object Website {
         context.setVariable("stepIndex", stepIndex)
         context.setVariable("stepTotal", stepTotal)
         context.setVariable("pages", topicReps.asJava) // th:each requires Java Iterables
+        // Maps rather than Page objects, so a template can write `section.module` and get a String.
+        // `Page.module` is an Option, which OGNL would render as `Some(income-jobs)` in a message key.
+        context.setVariable(
+          "sections",
+          sectionReps.map { rep =>
+            Map(
+              "module" -> rep.moduleSlug,
+              "href" -> rep.href(languageCode, app),
+              "titleKey" -> rep.titleKey,
+            ).asJava
+          }.asJava,
+        )
+        context.setVariable("sectionIndex", sectionIndex)
+        context.setVariable("sectionTotal", sectionReps.size)
         context.setVariable("currentPageRoute", currentPageRoute)
         context.setVariable("flags", flags.asJava)
         context.setVariable("languageCode", languageCode)

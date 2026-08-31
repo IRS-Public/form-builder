@@ -33,12 +33,8 @@ case class AllScreens(pages: List[WebsitePage], factDictionary: xml.Elem) {
 }
 
 object AllScreens {
-  // `page.module` is set whenever the flow was assembled from index.xml. The route fallback covers a
-  // single-file flow: "/about-you/marital-status" gives "about-you".
-  private def moduleSlug(page: Page): String = page.module.getOrElse {
-    val parts = page.route.stripPrefix("/").split("/", 2)
-    if (parts.nonEmpty && parts(0).nonEmpty) parts(0) else "other"
-  }
+  // On Page since the step indicator groups by it too — see Page.moduleSlug for what it falls back to.
+  private def moduleSlug(page: Page): String = page.moduleSlug
 
   private val conditionAttrRegex = """\bcondition="[^"]+"""".r
   private def countConditions(html: String): Int = conditionAttrRegex.findAllIn(html).size

@@ -4,7 +4,7 @@
             <use th:href="|${basePath}/resources/vendor/uswds-3.13.0/img/sprite.svg#attach_money|"></use>
         </svg>
     </div>
-    <input class="usa-input" th:id="${path}" type="text" inputmode="numeric"
-           th:name="${path}" autocomplete="off" th:required="${!optional}"
+    <input class="usa-input" th:id="${controlId}" type="text" inputmode="numeric"
+           th:name="${controlId}" autocomplete="off" th:required="${!optional}"
            th:attr="aria-describedby=${hintId}" aria-invalid="false">
 </div>

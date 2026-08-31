@@ -16,25 +16,67 @@ case class TranslationContext(
     translationMap: mutable.LinkedHashMap[String, Any] = mutable.LinkedHashMap.empty,
     translationContext: List[String] = List.empty,
     tagCounts: mutable.Map[String, Int] = mutable.Map.empty,
+    // Shared by every context in one parse, unlike tagCounts, which counts within one parent. See
+    // the forChildWithId overload that takes a signature.
+    idSignatures: mutable.Map[String, String] = mutable.Map.empty,
+    // Shared the same way, and keyed by page. See claimControlId.
+    controlIdCounts: mutable.Map[String, Int] = mutable.Map.empty,
 ) {
   def forChildWithoutUniqueId(label: String): TranslationContext = {
     val childKey = nextChildKey(label)
     val currentMap = translationMap.getMap(translationContext)
     currentMap.getOrElseUpdate(childKey, mutable.LinkedHashMap.empty[String, Any])
-    TranslationContext(translationMap, translationContext :+ childKey)
+    TranslationContext(
+      translationMap,
+      translationContext :+ childKey,
+      idSignatures = idSignatures,
+      controlIdCounts = controlIdCounts,
+    )
   }
 
   def forChildWithoutUniqueId(label: String, uniqueContent: String): TranslationContext = {
     val childKey = getHashKey(label, uniqueContent)
     val currentMap = translationMap.getMap(translationContext)
     currentMap.getOrElseUpdate(childKey, mutable.LinkedHashMap.empty[String, Any])
-    TranslationContext(translationMap, translationContext :+ childKey)
+    TranslationContext(
+      translationMap,
+      translationContext :+ childKey,
+      idSignatures = idSignatures,
+      controlIdCounts = controlIdCounts,
+    )
   }
 
   def forChildWithId(id: String): TranslationContext = {
     val currentMap = translationMap.getMap(translationContext)
     currentMap.getOrElseUpdate(id, mutable.LinkedHashMap.empty[String, Any])
-    TranslationContext(translationMap, translationContext :+ id)
+    TranslationContext(
+      translationMap,
+      translationContext :+ id,
+      idSignatures = idSignatures,
+      controlIdCounts = controlIdCounts,
+    )
+  }
+
+  /** A child keyed by an author-supplied id, with a signature as the tiebreak.
+    *
+    * One page may ask about the same fact more than once — two conditional phrasings of a question, or one question
+    * whose answer options are worded differently for a joint return, with only one showing at a time. For `<fg-set>`
+    * the id is the fact path, so every phrasing would land on one key and the second would collide with the first in
+    * [[updateValue]].
+    *
+    * `signature` is the authored text that decides whether two children are the same child: equal signatures share a
+    * key, and so share their translations rather than duplicating them. The first signature to claim an id keeps the
+    * bare id — a flow with no repeats has exactly the keys it had before this existed — and a later, different one gets
+    * `id-<hash of signature>`.
+    *
+    * The hash is of the signature rather than a counter, so editing one phrasing moves only that phrasing's key. Which
+    * of two repeats holds the bare id does depend on document order, the same way children named by [[nextChildKey]]
+    * already do.
+    */
+  def forChildWithId(id: String, signature: String): TranslationContext = {
+    val fullId = fullKey(id)
+    val claimed = idSignatures.getOrElseUpdate(fullId, signature)
+    forChildWithId(if (claimed == signature) id else getHashKey(id, signature))
   }
 
   def nextChildKey(label: String) = {
@@ -69,6 +111,27 @@ case class TranslationContext(
 
   def fullKey(): String = {
     translationContext.mkString(".")
+  }
+
+  /** The last segment of this context's key: the id this child ended up claiming. */
+  def localKey: String = translationContext.lastOption.getOrElse("")
+
+  /** A DOM id built from `base`, unique within the page.
+    *
+    * Translation keys and DOM ids want different things from a repeated question. A page may hold the same `<fg-set>`
+    * twice — two conditional branches asking it in the same words, only one of which shows — and there sharing a
+    * translation key is right: it is one string, translated once. Sharing an `id` is not: `<label for>` binds to the
+    * first element with that id, so the second copy's labels would point into the first, which is hidden. So the first
+    * claim keeps the bare id and later ones get `-2`, `-3`.
+    *
+    * Scoped to the page, because that is the document the ids must be unique in — the first segment of the key path is
+    * the page's route, since [[Page]] is what opens a context under the flow root.
+    */
+  def claimControlId(base: String): String = {
+    val key = s"${translationContext.headOption.getOrElse("")}\u0000$base"
+    val count = controlIdCounts.getOrElse(key, 0) + 1
+    controlIdCounts(key) = count
+    if (count == 1) base else s"$base-$count"
   }
 
   def fullKey(localKey: String): String = {

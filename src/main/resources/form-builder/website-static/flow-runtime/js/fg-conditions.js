@@ -40,6 +40,28 @@ export function checkCondition (condition, operator) {
 }
 
 /**
+ * Clear one hidden `<fg-set>`'s fact, surviving a path the graph cannot resolve.
+ *
+ * The delete is guarded for the same reason the read in checkCondition() is, and the asymmetry was a
+ * real bug: a path whose collection item does not exist — `/primaryFiler/willBeClaimed` while
+ * `/filers` is empty, `/primaryFiler` being a `<Find>` over it — throws `requirement failed` out of
+ * the engine. Thrown from here it escaped showOrHideAllElements(), which flow-runtime.js calls at
+ * module scope, so the module aborted: no navigation, no input wiring, and on an --auditMode build
+ * no workspace either, because the nav and its modals wire up after it. One unanswerable question
+ * took down every page of the site.
+ *
+ * Hiding still happens; only the cleanup is skipped. That is the safe half to lose — the fact has no
+ * resolvable home to hold a stale answer in, which is the same condition that made the delete throw.
+ */
+function clearHiddenFact (fgSet) {
+  try {
+    fgSet.deleteFactNoUpdate()
+  } catch (e) {
+    console.error(`Error clearing ${fgSet.getAttribute('path')} while hiding it, ignoring:\n`, e)
+  }
+}
+
+/**
  * Show or hide every `[condition][operator]` element, deleting the facts inside anything hidden.
  * One pass in DOM order, so an `<fg-set>` must not depend on a fact set later in the document.
  */
@@ -53,10 +75,10 @@ export function showOrHideAllElements () {
     if (!meetsCondition && !element.classList.contains('hidden')) {
       element.classList.add('hidden')
       if (element.tagName === 'FG-SET') {
-        element?.deleteFactNoUpdate()
+        clearHiddenFact(element)
       } else {
         const fgSetChildren = element.querySelectorAll('fg-set')
-        for (const fgSetChild of fgSetChildren) fgSetChild.deleteFactNoUpdate()
+        for (const fgSetChild of fgSetChildren) clearHiddenFact(fgSetChild)
       }
     } else if (meetsCondition && element.classList.contains('hidden')) {
       element.classList.remove('hidden')

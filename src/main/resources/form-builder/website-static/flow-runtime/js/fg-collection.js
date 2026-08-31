@@ -3,6 +3,10 @@
 //
 // Each item is a clone of the collection's `<template class="fg-collection__item-template">` with
 // the item's id spliced into every abstract `/*/` path. See docs/internals/flow-runtime.md.
+//
+// A `readonly` collection iterates a set the taxpayer cannot change — a <Derived> collection, whose
+// membership another fact decides. The template omits the Add button and the per-item Remove
+// control for one, so every reference to either is optional here.
 
 import { factGraph, saveFactGraph } from './fg-fact-graph.js'
 import { configureCollectionIds, makeCollectionIdPath, generateUUID } from './fg-collection-utils.js'
@@ -64,8 +68,9 @@ class FgCollection extends HTMLElement {
 
   connectedCallback () {
     this.path = this.getAttribute('path')
+    // Absent on a readonly collection, which has nothing to add to.
     this.addItemButton = this.querySelector('.fg-collection__add-item')
-    this.addItemButton.addEventListener('click', this.addItemListener)
+    this.addItemButton?.addEventListener('click', this.addItemListener)
 
     if (this.getAddItemIfTruePath()) {
       document.addEventListener('fg-update', this.boundUpdateAddItemButton)
@@ -98,7 +103,7 @@ class FgCollection extends HTMLElement {
     if (this.getAddItemIfTruePath()) {
       document.removeEventListener('fg-update', this.boundUpdateAddItemButton)
     }
-    this.addItemButton.removeEventListener('click', this.addItemListener)
+    this.addItemButton?.removeEventListener('click', this.addItemListener)
   }
 
   addItem (id) {
@@ -165,10 +170,13 @@ class FgCollectionItem extends HTMLElement {
       collectionItemContent.open = true
     }
 
+    // Absent on a readonly collection: a derived item is removed by the fact that put it there.
     this.removeButton = this.querySelector('.fg-collection-item__remove-item')
-    const modalId = this.removeButton.getAttribute('for')
-    this.clickRemoveItemListener = () => this.handleClickRemoveItem(modalId)
-    this.removeButton.addEventListener('click', this.clickRemoveItemListener)
+    if (this.removeButton) {
+      const modalId = this.removeButton.getAttribute('for')
+      this.clickRemoveItemListener = () => this.handleClickRemoveItem(modalId)
+      this.removeButton.addEventListener('click', this.clickRemoveItemListener)
+    }
 
     document.addEventListener('fg-clear', this.clearListener)
 
@@ -178,7 +186,7 @@ class FgCollectionItem extends HTMLElement {
   disconnectedCallback () {
     console.debug('Disconnecting', this)
 
-    this.removeButton.removeEventListener('click', this.clickRemoveItemListener)
+    this.removeButton?.removeEventListener('click', this.clickRemoveItemListener)
     document.removeEventListener('fg-clear', this.clearListener)
 
     this.replaceChildren()
@@ -193,7 +201,7 @@ class FgCollectionItem extends HTMLElement {
       const addButton = fgCollection.querySelector('.fg-collection__add-item')
 
       this.clear()
-      addButton.focus()
+      addButton?.focus()
     }
   }
 

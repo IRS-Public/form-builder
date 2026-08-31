@@ -7,13 +7,13 @@
 
 package gov.irs.formbuilder.parser
 
-import gov.irs.factgraph.Path
 import gov.irs.formbuilder.exceptions.InvalidFormConfig
 import gov.irs.formbuilder.parser.Utils.validateFact
 import gov.irs.formbuilder.FormBuilderTemplateEngine
 import org.thymeleaf.context.Context
 import scala.jdk.CollectionConverters.IterableHasAsJava
 import scala.xml.Elem
+import scala.xml.NodeSeq
 
 case class ThymeleafOption(name: String, value: String, description: String)
 
@@ -29,6 +29,8 @@ case class FgSet(
     hint: Option[Hint],
     modalLink: Option[ModalLink],
     translationContext: TranslationContext,
+    /** The DOM id the input templates build theirs from. Claimed at parse time; see [[FgSet.fromXml]]. */
+    controlId: String,
 ) extends FlowNode {
   override def html(templateEngine: FormBuilderTemplateEngine): String = {
     val usesFieldset = input.usesFieldset
@@ -44,7 +46,8 @@ case class FgSet(
     context.setVariable("contentKey", contentKey)
     context.setVariable("hint", hint.orNull)
     context.setVariable("modalLink", modalLink.orNull)
-    context.setVariable("hintId", if (hint.nonEmpty) s"$path-hint" else null)
+    context.setVariable("controlId", controlId)
+    context.setVariable("hintId", if (hint.nonEmpty) s"$controlId-hint" else null)
 
     input match {
       case Input.select(options, optionsPath, _) =>
@@ -99,11 +102,17 @@ object FgSet extends FlowNodeParser {
     }
     validateFact(path, factDictionary)
 
-    val factDefinitionNode = factDictionary.getDefinitionsAsNodes()(Path(path))
+    // `getDefinitionsAsNodes` is keyed by the path a fact is *declared* at, and `path` need not be
+    // that path: it may reach the fact through a derived collection-item alias, the way
+    // `/primaryFiler/firstName` reaches `/filers/*/firstName`. `getDefinition` resolves those; the
+    // raw map does not, and looking the path up in it directly throws a `NoSuchElementException`
+    // several frames from anything naming the question. So ask the definition where it lives.
+    val factDefinition = factDictionary.getDefinition(path)
+    val factDefinitionNode = factDictionary.getDefinitionsAsNodes().getOrElse(factDefinition.path, NodeSeq.Empty)
     val isOptional = (factDefinitionNode \ "Placeholder").nonEmpty
 
     val input = Input.extractFromFgSet(fgSetElement, isOptional, factDictionary, flowParser.app)
-    val typeNode = factDictionary.getDefinition(path).typeNode
+    val typeNode = factDefinition.typeNode
     if (input.expectedNodeType.exists(_ != typeNode)) {
       throw InvalidFormConfig(s"Path $path must be of type $input")
     }
@@ -116,7 +125,12 @@ object FgSet extends FlowNodeParser {
 
     val condition = Condition.getCondition(fgSetElement, factDictionary)
 
-    val translationContext = parentTranslationContext.forChildWithId(path)
+    // The path is the key, unless a sibling `<fg-set>` on the same fact already claimed it with
+    // different words — see forChildWithId's overload for what happens then. The signature is the
+    // element's content rather than its question alone, because two questions can read the same and
+    // still differ in their options: `credits-and-deductions/credits/ctc-odc` asks one thing and
+    // offers "No, this hasn't happened to me" or "…to us" depending on the filing status.
+    val translationContext = parentTranslationContext.forChildWithId(path, fgSetElement.child.mkString)
     translationContext.updateValue("question", question)
 
     def conditionOf(node: xml.Node): Option[Condition] = {
@@ -155,6 +169,23 @@ object FgSet extends FlowNodeParser {
       })
     }
 
-    FgSet(path, condition, input, isOptional, hint, modalLink, translationContext)
+    // What the input templates build their `id` and `name` from, and the reason it is not the path.
+    //
+    // A page may hold two `<fg-set>`s on one fact — two conditional branches asking the same
+    // question, only one of which shows — and ids built from the path alone would then repeat,
+    // putting every `<label for>` on the first copy and leaving the second's labels pointing into a
+    // hidden input. So the id starts from the key this child claimed (`path`, or `path-<hash>` when
+    // a differently-worded sibling already had it) and is then made unique within the page, which
+    // covers the case where the two are worded identically and rightly share one translation.
+    //
+    // `name` follows the id rather than staying the path. Nothing reads it as a path — the runtime
+    // and the workspace both find inputs by walking the `<fg-set>` — and the one thing it does
+    // decide, which radios belong to one group, is exactly a question's worth of controls. The
+    // `<fg-set>`, `<fg-apply>` and `<fg-collection>` elements still carry the path itself.
+    //
+    // Claimed here rather than in `html`, which runs once per locale and once more for Browse All.
+    val controlId = parentTranslationContext.claimControlId(translationContext.localKey)
+
+    FgSet(path, condition, input, isOptional, hint, modalLink, translationContext, controlId)
   }
 }

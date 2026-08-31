@@ -191,12 +191,26 @@ collection, and each item is a clone of the collection's
 `<template class="fg-collection__item-template">` with the item's id spliced into every abstract
 `/*/` path by `configureCollectionIds`.
 
-Two flow attributes gate it:
+Three flow attributes gate it:
 
 | Attribute | Effect |
 |---|---|
 | `add-item-if-true` | Disables the Add button when the named fact is complete and false. An incomplete fact keeps it enabled, so a mid-edit answer does not block |
 | `seed-item-if-true` | Starts the collection with one empty row already open |
+| `readonly` | Renders no Add button and no per-item Remove control |
+
+`readonly` is what a `<Derived>` collection needs. Its membership is decided by another fact — a
+`<Filter>` over a writable collection, say — so adding a row is not redundant but wrong: `addItem`
+writes the collection fact, and a derived fact does not accept a write. Reading one works without
+any special case, because `Fact.applyWildcard` follows the derived `CollectionNode`'s alias: asking
+the graph for `/dogs/*` where `/dogs` filters `/pets` yields `/dogs/#<id>` for the members that pass
+the filter, so `getCollectionIds` returns exactly those ids and `configureCollectionIds` splices
+each into the item template's `/pets/*/…` paths. The abstract path a field names does not have to be
+the collection the element iterates.
+
+Nothing marks a readonly collection in the rendered HTML. The missing button is the whole of the
+difference, and the parser refuses `determiner`, `disallow-empty`, `seed-item-if-true` and
+`add-item-if-true` beside it rather than accepting an attribute that would move nothing.
 
 `makeCollectionIdPath` is duplicated in `taxpert`'s `shared/js/collection-utils.js` on purpose. This
 package ships in a Scala jar, so taxpert cannot import from it, and a relative path into

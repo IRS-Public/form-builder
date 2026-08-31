@@ -1,6 +1,7 @@
 // `<fg-collection>`: a repeating group bound to a CollectionNode fact. Children are parsed as
 // ordinary flow nodes and rendered once per item by the browser runtime.
 // `add-item-if-true` and `seed-item-if-true` must name Boolean facts, validated here.
+// `readonly` iterates a collection the taxpayer cannot change, and is what a <Derived> collection needs.
 // Long-form: docs/internals/flow-parsing-and-generation.md
 
 package gov.irs.formbuilder.parser
@@ -24,6 +25,7 @@ case class FgCollection(
     determiner: String,
     addItemIfTrue: Option[String],
     seedItemIfTrue: Option[String],
+    readonly: Boolean,
 ) extends FlowNode {
   def html(templateEngine: FormBuilderTemplateEngine): String = {
     val context = new Context()
@@ -38,6 +40,7 @@ case class FgCollection(
     context.setVariable("seedItemIfTrue", seedItemIfTrue.getOrElse(""))
     context.setVariable("itemName", itemName)
     context.setVariable("determiner", determiner)
+    context.setVariable("readonly", readonly)
     // The template reads the translated item name from this key. The raw `itemName` stays on the context because
     // two element ids are derived from it and must not change per language.
     context.setVariable("contentKey", translationKeyBase)
@@ -61,9 +64,29 @@ object FgCollection extends FlowNodeParser {
     val determiner = fgCollectionElement \@ "determiner"
     val addItemIfTrue = optionString(fgCollectionElement \@ "add-item-if-true")
     val seedItemIfTrue = optionString(fgCollectionElement \@ "seed-item-if-true")
+    val readonly = (fgCollectionElement \@ "readonly") == "true"
 
     if (itemName.isEmpty) {
       throw InvalidFormConfig("item-name is a required property of FgCollection but was blank")
+    }
+
+    // Every one of these only ever dresses the Add button, and a readonly collection has no Add button. A declared
+    // attribute that moves nothing is the failure mode this library has been bitten by before, so it is an error
+    // rather than a silent no-op.
+    if (readonly) {
+      val addOnly = Seq(
+        "add-item-if-true" -> addItemIfTrue.isDefined,
+        "seed-item-if-true" -> seedItemIfTrue.isDefined,
+        "disallow-empty" -> (disallowEmpty == "true"),
+        "determiner" -> determiner.nonEmpty,
+      ).collect { case (name, true) => name }
+
+      if (addOnly.nonEmpty) {
+        throw InvalidFormConfig(
+          s"fg-collection $path is readonly, so ${addOnly.mkString(" and ")} would have no effect. Remove " +
+            s"${if (addOnly.length == 1) "it" else "them"}, or drop readonly.",
+        )
+      }
     }
 
     validateFgCollection(path, factDictionary)
@@ -99,6 +122,7 @@ object FgCollection extends FlowNodeParser {
       determiner,
       addItemIfTrue,
       seedItemIfTrue,
+      readonly,
     )
   }
 

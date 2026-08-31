@@ -35,8 +35,19 @@ object PageSplitter {
       // flattening it away would leave every question inside it unconditional. Cutting *between* the
       // blocks keeps each wrapper whole, which is both correct and the right grain — one emitted page
       // per source screen.
+      //
+      // Whether a block *has* a question is beside the point, and reading it as the trigger was a bug:
+      // a screen of pure prose — a breather, an outcome — is still a screen, and its wrapper still
+      // carries the condition that decides whether it shows. Left unsplit it kept the page's route,
+      // took no gate, and rendered as a page with every element on it hidden.
+      //
+      // Every unit has to be a wrapper for this to be the transpiled shape. `topLevelUnits` sees
+      // through `<section>` but hands back whatever else is there, so a page of loose `<p>`s would
+      // otherwise be cut into one page per paragraph.
       val blocks = topLevelUnits(page.children).filterNot(_.isInstanceOf[Modal]).toVector
-      if (blocks.exists(containsQuestion)) return splitByBlocks(page, blocks, modals)
+      if (blocks.nonEmpty && blocks.forall(_.isInstanceOf[HtmlWithChildren])) {
+        return splitByBlocks(page, blocks, modals)
+      }
       return List(page.copy(sourcePageRoute = Some(page.route)))
     }
 
@@ -135,8 +146,6 @@ object PageSplitter {
     case a: FgAlert          => questionIn(a.children).iterator
     case _                   => Iterator.empty
   }.nextOption()
-
-  private def containsQuestion(node: FlowNode): Boolean = questionIn(Seq(node)).isDefined
 
   /** A page's children with `<section>` wrappers seen through, so a real block is a unit and a grouping element is not. */
   private def topLevelUnits(nodes: Seq[FlowNode]): Seq[FlowNode] = nodes.flatMap {

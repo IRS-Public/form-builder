@@ -1,6 +1,27 @@
 // Page-level validation and the focus moves that go with it: the summary alert, the first invalid
 // field, and a visible knockout. See docs/internals/flow-runtime.md.
 
+/**
+ * The knockout alert that is actually on screen, or null.
+ *
+ * `:not(.hidden)` is not enough on its own, and the difference is a page nobody can leave. A
+ * condition hides the element that *carries* it, and a knockout's condition is often on an ancestor
+ * rather than on the alert — a transpiled flow wraps each source screen in a conditional `<div>` and
+ * gives the alert inside it a condition that is always true. So the wrapper gets `.hidden`, the alert
+ * does not, and a selector that only reads the alert's own class finds a knockout the user cannot
+ * see. Continue then refuses to navigate and says nothing, because from its point of view the
+ * taxpayer is knocked out.
+ *
+ * `closest('.hidden')` is how the `<fg-set>` check in validateSectionForNavigation has always read
+ * the same question; this makes the knockout check agree with it.
+ */
+export function visibleKnockoutAlert () {
+  for (const alert of document.querySelectorAll('fg-alert[knockout="true"]:not(.hidden)')) {
+    if (!alert.closest('.hidden')) return alert
+  }
+  return null
+}
+
 export function focusKnockoutAlert (knockoutAlert) {
   const heading = knockoutAlert.querySelector('.usa-alert__heading')
   const target = heading ?? knockoutAlert
@@ -61,7 +82,7 @@ export function validateSectionForNavigation () {
     return false
   }
 
-  const knockoutAlert = document.querySelector('fg-alert[knockout="true"]:not(.hidden)')
+  const knockoutAlert = visibleKnockoutAlert()
   if (knockoutAlert) {
     focusKnockoutAlert(knockoutAlert)
     return false

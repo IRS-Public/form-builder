@@ -6,7 +6,7 @@
 //
 // See docs/internals/flow-runtime.md.
 
-import { validateSectionForNavigation, focusKnockoutAlert } from './fg-validation.js'
+import { validateSectionForNavigation, focusKnockoutAlert, visibleKnockoutAlert } from './fg-validation.js'
 import { factGraph, saveFactGraph } from './fg-fact-graph.js'
 
 const handlers = []
@@ -84,7 +84,7 @@ export function revealOnContinue ({ route, gatePath, clickedPath, revealWhen = (
     saveFactGraph()
     document.dispatchEvent(new CustomEvent('fg-update'))
 
-    const knockoutAlert = document.querySelector('fg-alert[knockout="true"]:not(.hidden)')
+    const knockoutAlert = visibleKnockoutAlert()
     if (knockoutAlert) focusKnockoutAlert(knockoutAlert)
 
     event.preventDefault()

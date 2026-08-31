@@ -15,7 +15,12 @@
                aria-invalid="false"
                th:attr="aria-describedby=${option.description != null ? (path + '-' + option.value + '-description') : null}"/>
         <label th:for="${controlId} + '-' + ${option.value}" class="usa-radio__label radio-option">
-            <span th:text="#{${contentKey} + .options. + ${option.value} + .name}"></span>
+        <!-- utext, not text: an option's label may carry markup. FgSet.scala stores the option's
+             inner XML as the translation value (`option.head.child.mkString`), so `<strong>` and
+             `<fg-show path="/taxYear">` both arrive here intact and escaping them would print the
+             tags. The boolean input's options have always been rendered this way; this is the same
+             rule, applied to the two that were not. -->
+            <span th:utext="#{${contentKey} + .options. + ${option.value} + .name}"></span>
             <span th:if="${option.description != null}"
                   class="usa-radio__label-description"
                   th:id="${controlId} + '-' + ${option.value} + '-description'"

@@ -1,9 +1,10 @@
 // `<fg-set>`: one question, binding a fact path to an input.
 //
-// Two things come from the dictionary rather than the flow. Optionality is the presence of a
-// <Placeholder> on the fact, and expectedNodeType is checked against the fact's type here rather
-// than inside each input, so a registered input type gets the same check as a built-in one.
-// Long-form: docs/internals/flow-parsing-and-generation.md
+// Optionality comes from either side: a <Placeholder> on the fact (the dictionary's answer — the
+// fact has a value to fall back on) or `optional="true"` on the <fg-set> itself (the flow's answer —
+// the question may go unanswered even though the fact has no such default). expectedNodeType is
+// checked against the fact's type here rather than inside each input, so a registered input type
+// gets the same check as a built-in one. Long-form: docs/internals/flow-parsing-and-generation.md
 
 package gov.irs.formbuilder.parser
 
@@ -104,7 +105,11 @@ object FgSet extends FlowNodeParser {
 
     val factDefinition = factDictionary.getDefinition(path)
     val factDefinitionNode = factDictionary.getDefinitionsAsNodes().getOrElse(factDefinition.path, NodeSeq.Empty)
-    val isOptional = (factDefinitionNode \ "Placeholder").nonEmpty
+    // Two independent ways a control ends up optional: the dictionary gives the fact a value to stand
+    // in for "unanswered" (a <Placeholder>), or the flow itself says the question may be skipped
+    // (`optional="true"`) even though the fact has no such default and is left Incomplete. The schema
+    // has allowed the latter on <fg-set> since it was written; nothing read it back until now.
+    val isOptional = (factDefinitionNode \ "Placeholder").nonEmpty || (fgSetElement \@ "optional") == "true"
 
     val input = Input.extractFromFgSet(fgSetElement, isOptional, factDictionary, flowParser.app)
     val typeNode = factDefinition.typeNode

@@ -33,14 +33,22 @@ case class FlowParser(
 ) {
   private val nodeParsers: Map[String, FlowNodeParser] = FlowNodeTypes.builtIn ++ app.nodeTypes
 
+  /** The children of `parent`, parsed.
+    *
+    * `required` is what distinguishes an element that is meaningless without content from one that carries its own.
+    * `<fg-alert>` is the second kind: its heading is excluded from this walk and a heading alone is a complete alert,
+    * so it passes `required = false` and an empty body is not an error. Everywhere else an element with nothing left to
+    * parse is a flow-config mistake, and saying so here names the element rather than rendering it as empty HTML.
+    */
   def parseChildElements(
       parent: Elem,
       parentTranslationContext: TranslationContext,
       excludedLabels: Seq[String] = Seq.empty[String],
+      required: Boolean = true,
   ): Seq[FlowNode] = {
     val childElements = (parent \ "_").filter(c => !excludedLabels.contains(c.label))
 
-    if (childElements.isEmpty) {
+    if (childElements.isEmpty && required) {
       throw InvalidFormConfig(s"Encountered an empty element for which there is no parser configured: $parent")
     }
     childElements.collect { case element: Elem =>

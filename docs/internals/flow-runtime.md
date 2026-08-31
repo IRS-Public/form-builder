@@ -23,14 +23,20 @@ why they use no bundler syntax and import each other by relative path with the `
 | `taxpert` (a separate npm package) | The optional workspace over the top. It reads the flow through the DOM and `window.factGraph`, and never imports from here |
 
 The split matters when a change touches both halves. Every branch of `fg-set.js`'s `inputType`
-switch has a matching template under `templates/nodes/inputs/`, so adding an input type is two
-edits, not one.
+switch has a matching template under `templates/nodes/inputs/`, so adding an input type **here** is
+two edits, not one.
+
+An **application** adding one does not touch either: it registers an `InputParser` on its
+`FormBuilderApp`, drops a `nodes/inputs/{name}.html` in its own resources, and calls
+`registerInputType()` from `input-types.js` for the browser half. The switches in `fg-set.js` are
+the built-in types and are closed.
 
 ## The modules
 
 | Module | Responsibility |
 |---|---|
 | `flow-runtime.js` | The entry point. Imports the elements into existence, runs the first visibility pass, reveals the page, and re-exports the public surface |
+| `input-types.js` | The registry an application adds an `<fg-set>` input type through, without editing `fg-set.js` |
 | `fact-graph-engine.js` | Loads the compiled Scala.js engine once, so every module shares one instance |
 | `fg-fact-graph.js` | Owns the graph: loads the dictionary, rehydrates from `sessionStorage`, saves, resets |
 | `fg-graph-bridge.js` | Publishes and receives the serialized graph over a `BroadcastChannel`, for a Fact Explorer embedding the app |
@@ -140,7 +146,27 @@ type falls through to the default, which commits on `blur` and on `Tab`.
 | `date` | `change`, once all three fields are filled |
 | `dollar` | `input` |
 | `select`, `boolean`, `enum`, `multi-enum` | `change` |
+| a registered type with an `attach` | whatever that `attach` wires |
 | anything else | `blur`, and `keydown` when the key is Tab |
+
+#### Registering an input type
+
+`registerInputType(name, { read, write, clear, attach })` in `input-types.js` is the browser half of
+`FormBuilderApp.inputTypes`. Without it, a custom type has to be a wrapper custom element that
+duplicates `fg-set`'s error rendering, because the five `switch (this.inputType)` blocks each ended
+in a warning an application could not extend.
+
+| Handler | Does |
+|---|---|
+| `read(el)` | Return the value to hand the Fact Graph. `''` or `null` means unanswered, which deletes the fact rather than setting it empty |
+| `write(el, value, fact)` | Put a fact value into the inputs. `value` is `''` when incomplete; `fact` is the raw result for a type whose DOM needs more than the string |
+| `clear(el)` | Return the inputs to empty |
+| `attach(el)` | Optional. Wire the events that call `el.onChange()`. Omit to inherit the blur/Tab default |
+
+**Registration order does not matter.** ESM hoists imports, so an application usually cannot register
+before `flow-runtime.js` evaluates and `<fg-set>` upgrades. `read`/`write`/`clear` are looked up at
+call time, and a late registration re-wires the elements already on the page — otherwise a type that
+should commit on every keystroke would silently commit only on blur.
 
 The Tab listener exists because conditions have to be re-evaluated before the keydown resolves, so
 that focusable elements are updated before focus moves. `blur` and `change` both fire after focus
@@ -165,12 +191,26 @@ collection, and each item is a clone of the collection's
 `<template class="fg-collection__item-template">` with the item's id spliced into every abstract
 `/*/` path by `configureCollectionIds`.
 
-Two flow attributes gate it:
+Three flow attributes gate it:
 
 | Attribute | Effect |
 |---|---|
 | `add-item-if-true` | Disables the Add button when the named fact is complete and false. An incomplete fact keeps it enabled, so a mid-edit answer does not block |
 | `seed-item-if-true` | Starts the collection with one empty row already open |
+| `readonly` | Renders no Add button and no per-item Remove control |
+
+`readonly` is what a `<Derived>` collection needs. Its membership is decided by another fact — a
+`<Filter>` over a writable collection, say — so adding a row is not redundant but wrong: `addItem`
+writes the collection fact, and a derived fact does not accept a write. Reading one works without
+any special case, because `Fact.applyWildcard` follows the derived `CollectionNode`'s alias: asking
+the graph for `/dogs/*` where `/dogs` filters `/pets` yields `/dogs/#<id>` for the members that pass
+the filter, so `getCollectionIds` returns exactly those ids and `configureCollectionIds` splices
+each into the item template's `/pets/*/…` paths. The abstract path a field names does not have to be
+the collection the element iterates.
+
+Nothing marks a readonly collection in the rendered HTML. The missing button is the whole of the
+difference, and the parser refuses `determiner`, `disallow-empty`, `seed-item-if-true` and
+`add-item-if-true` beside it rather than accepting an attribute that would move nothing.
 
 `makeCollectionIdPath` is duplicated in `taxpert`'s `shared/js/collection-utils.js` on purpose. This
 package ships in a Scala jar, so taxpert cannot import from it, and a relative path into
@@ -185,8 +225,19 @@ containing `*` shows every item's value, which is why it reaches into the Scala.
 `<fg-reset>` drops the stored graph. It reloads in place on the Browse All and Author views, which
 keeps the current mode and query string, and sends the linear flow back to its first page.
 
-`<fg-apply path="…" value="…">` writes a literal as the page renders. It lets a page reached only
-under a condition assert the fact that condition implies.
+`<fg-apply path="…">` writes as the page renders, so a page reached only under a condition can
+assert the fact that condition implies. What it writes comes from exactly one of two attributes —
+the parser rejects both and neither:
+
+| | Writes |
+|---|---|
+| `value="true"` | that literal |
+| `source="/otherPath"` | the current value of `/otherPath` |
+
+`source` exists because copying one fact into another cannot be expressed as a literal: the value is
+not known when the flow is authored. An incomplete source writes **nothing** rather than an empty
+value, so an `<fg-apply source>` on a page rendered before its source is answered is inert rather
+than a way to silently clear the target.
 
 ## Conditional visibility
 
@@ -287,4 +338,5 @@ An application extends the runtime through these events and `registerContinueHan
 | Two applications on one origin overwrite each other's answers | They resolve to the same `storagePrefix` |
 | A question stays complete after the answer that revealed it changed | Its element was not inside the one being hidden, so its fact was never deleted |
 | Live sync with Fact Explorer stopped, with no error | The channel name or message shape changed on one side |
-| A new input type renders but never commits | `fg-set.js` has no case for it and the default blur handler does not suit it |
+| A new input type renders but never commits | It has no `registerInputType()` call, so it took the default blur handler |
+| A registered input type warns `Unknown input type` in the console | `registerInputType()` ran with a different `name` than the `<input type>` in the Flow XML |

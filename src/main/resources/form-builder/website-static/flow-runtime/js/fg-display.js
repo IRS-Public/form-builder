@@ -71,13 +71,33 @@ class FgReset extends HTMLElement {
 customElements.define('fg-reset', FgReset)
 
 /**
- * `<fg-apply path="…" value="…">`: write a literal into the graph as the page renders it, so a page
- * reached only under a condition can assert the fact that condition implies.
+ * `<fg-apply path="…">`: write into the graph as the page renders it, so a page reached only under
+ * a condition can assert the fact that condition implies.
+ *
+ * The value comes from either `value="…"`, a literal, or `source="/otherPath"`, the current value of
+ * another fact. The parser guarantees exactly one of the two is present.
+ *
+ * An incomplete source writes nothing rather than writing an empty value. The alternative would
+ * make `<fg-apply source>` a way to silently clear a fact whenever the page happens to render
+ * before the source is answered, which is the opposite of what copying one fact into another means.
  */
 class FgApply extends HTMLElement {
   connectedCallback () {
     const path = this.getAttribute('path')
-    const value = this.getAttribute('value')
+    const source = this.getAttribute('source')
+
+    let value
+    if (source) {
+      const fact = factGraph.get(source)
+      if (!fact.complete) {
+        console.debug(`Not setting fact ${path} from fg-apply: source ${source} is incomplete`)
+        return
+      }
+      value = fact.get?.toString()
+    } else {
+      value = this.getAttribute('value')
+    }
+
     console.debug(`Setting fact ${path} to ${value} from fg-apply`)
     factGraph.set(path, value)
     saveFactGraph()

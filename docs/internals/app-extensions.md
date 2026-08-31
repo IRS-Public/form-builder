@@ -63,6 +63,11 @@ on that case is how a custom input still gets the fact-type check every built-in
 Graph node type it binds to, such as `"BooleanNode"`, or leave it `None` to opt out.
 `suppliesOwnLabel` tells `fg-set` not to put a `<label>` in front of it.
 
+That is the Scala half. The browser half is `registerInputType(name, { read, write, clear })` from
+the flow runtime's `input-types.js`, which tells `<fg-set>` how to read the type's inputs, write a
+fact value back into them and clear them. An input type needs both halves plus the template; see
+[flow-runtime.md](flow-runtime.md#registering-an-input-type).
+
 The Tax Withholding Estimator registers `single-checkbox` as a new type and `date` as a replacement.
 
 ### 5. The workspace mount fragments

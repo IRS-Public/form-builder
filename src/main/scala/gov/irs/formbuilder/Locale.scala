@@ -78,6 +78,7 @@ implicit val anyEncoder: Encoder[Any] = Encoder.instance {
   */
 def generateFlowLocaleFile(translationMap: mutable.LinkedHashMap[String, Any], app: FormBuilderApp): Unit = {
   val generatedPath = generatedFlowContentPath(app)
+  assertKeysArePrintable(translationMap, Nil)
   val json = translationMap.asJson
   val yamlString = Printer(dropNullKeys = true, preserveOrder = true).pretty(json)
   val content = s"# DO NOT EDIT, THIS IS A GENERATED FILE\n$yamlString"
@@ -87,6 +88,31 @@ def generateFlowLocaleFile(translationMap: mutable.LinkedHashMap[String, Any], a
     Log.info(s"Generated flow content at ${generatedPath}")
   }
 }
+
+/** The longest mapping key the YAML printer will write on one line with its value.
+  *
+  * Past it the printer switches to YAML's explicit-key form — `? key` on its own line, then `: value` — which the
+  * parser [[Locale]] reads these files back with does not accept. So a key this long makes the build write a file it
+  * cannot load, and the failure surfaces on the next run as a parse error pointing at a line that looks fine.
+  */
+private val MaxPrintableKeyLength = 128
+
+/** Fail on a translation key too long to round-trip, naming it and where it sits. */
+private def assertKeysArePrintable(map: mutable.LinkedHashMap[String, Any], context: List[String]): Unit =
+  map.foreach { case (key, value) =>
+    if (key.length > MaxPrintableKeyLength) {
+      val where = (context :+ key).mkString(".")
+      throw new Exception(
+        s"Translation key is ${key.length} characters, over the $MaxPrintableKeyLength the flow locale " +
+          s"file can hold: $where. Keys come from the flow XML — shorten the id or the heading that " +
+          s"names this one.",
+      )
+    }
+    value match {
+      case child: mutable.LinkedHashMap[String, Any] @unchecked => assertKeysArePrintable(child, context :+ key)
+      case _                                                    => ()
+    }
+  }
 
 // Prefixed onto a stubbed value, then rewritten into a comment line above the key, because the circe
 // YAML printer cannot emit comments directly.

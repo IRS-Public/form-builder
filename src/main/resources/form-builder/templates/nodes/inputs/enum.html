@@ -6,19 +6,19 @@
     <div th:replace="nodes/hint"></div>
     <div th:replace="nodes/modal-link"></div>
     <div class="usa-radio" th:each="option : ${options}">
-        <input th:id="${path} + '-' + ${option.value}"
+        <input th:id="${controlId} + '-' + ${option.value}"
                class="usa-radio__input"
                type="radio"
                th:value="${option.value}"
-               th:name="${path}"
+               th:name="${controlId}"
                th:required="${not optional}"
                aria-invalid="false"
                th:attr="aria-describedby=${option.description != null ? (path + '-' + option.value + '-description') : null}"/>
-        <label th:for="${path} + '-' + ${option.value}" class="usa-radio__label radio-option">
+        <label th:for="${controlId} + '-' + ${option.value}" class="usa-radio__label radio-option">
             <span th:text="#{${contentKey} + .options. + ${option.value} + .name}"></span>
             <span th:if="${option.description != null}"
                   class="usa-radio__label-description"
-                  th:id="${path} + '-' + ${option.value} + '-description'"
+                  th:id="${controlId} + '-' + ${option.value} + '-description'"
                   aria-hidden="true"
                   th:text="#{${contentKey} + .options. + ${option.value} + .description}"></span>
         </label>

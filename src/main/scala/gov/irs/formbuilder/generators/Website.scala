@@ -15,7 +15,6 @@ import org.jsoup.parser.Tag
 import org.jsoup.Jsoup
 import org.thymeleaf.context.Context
 import os.Path
-import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters.*
 
 case class WebsitePage(route: String, content: String, languageCode: String) {
@@ -69,6 +68,8 @@ case class Website(
       os.write(target, page.html(), null, createFolders = true)
     }
 
+    writeRootRedirects(directoryPath, app)
+
     val resourcesSource = app.websiteStaticDir
     val resourcesTarget = directoryPath / "resources"
     os.copy(resourcesSource, resourcesTarget)
@@ -90,6 +91,49 @@ case class Website(
       }
     }
   }
+
+  /** A base path that does not resolve is not a usable front door: served from nginx with autoindex off, `/app/<id>/`
+    * answers 403 rather than 404, which reads as a deployment fault rather than a missing page. An application avoids
+    * that by declaring one `<page route="/">`
+    *
+    * for each locale with no page at "/", write a redirect at that locale's root pointing at its own first page. A
+    * locale that *does* claim "/" has already written index.html there and is left untouched — this only ever creates a
+    * file that would otherwise be absent.
+    *
+    * `<meta http-equiv="refresh">` rather than a server rule because `out/` is served by whatever the deployment
+    * happens to be (nginx here, `python -m http.server` in a scratch check); the redirect has to live in the tree.
+    * `<link rel="canonical">` keeps the destination the indexed URL.
+    */
+  private def writeRootRedirects(directoryPath: Path, app: FormBuilderApp): Unit =
+    pages.groupBy(_.languageCode).foreach { (languageCode, localePages) =>
+      val hasRootPage = localePages.exists(_.route == "/")
+      if (!hasRootPage) {
+        localePages.headOption.foreach { first =>
+          val localeSegment = if (languageCode == app.defaultLocale) "" else s"/$languageCode"
+          val target = s"${app.basePath}$localeSegment${first.route.stripSuffix("/")}/"
+          val root = if (languageCode == app.defaultLocale) directoryPath else directoryPath / languageCode
+          val escaped = target.replace("&", "&amp;").replace("<", "&lt;").replace("\"", "&quot;")
+          os.write(
+            root / "index.html",
+            s"""<!doctype html>
+<html lang="$languageCode">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="0; url=$escaped">
+    <link rel="canonical" href="$escaped">
+    <title>Redirecting</title>
+  </head>
+  <body>
+    <p>Redirecting to <a href="$escaped">$escaped</a>.</p>
+  </body>
+</html>
+""",
+            null,
+            createFolders = true,
+          )
+        }
+      }
+    }
 }
 
 object Website {

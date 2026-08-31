@@ -54,7 +54,8 @@ object FgAlert extends FlowNodeParser {
 
     val translationContext = parentTranslationContext.forChildWithoutUniqueId(fgAlertElement.label, heading)
     translationContext.updateValue("heading", heading)
-    val children = flowParser.parseChildElements(fgAlertElement, translationContext, List("heading"))
+    // A heading is a complete alert; the body is optional. See parseChildElements' `required`.
+    val children = flowParser.parseChildElements(fgAlertElement, translationContext, List("heading"), required = false)
 
     FgAlert(condition, alertType, knockout, translationContext, children)
   }

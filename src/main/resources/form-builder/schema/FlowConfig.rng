@@ -260,6 +260,16 @@
           <data type="anyURI"/>
         </attribute>
       </optional>
+      <!-- A collection the taxpayer cannot change: no Add button, no per-item Remove. What a
+           <Derived> collection needs, since its membership is decided by another fact. -->
+      <optional>
+        <attribute name="readonly">
+          <choice>
+            <value>true</value>
+            <value>false</value>
+          </choice>
+        </attribute>
+      </optional>
       <optional>
         <choice>
           <attribute name="if-false">
@@ -492,9 +502,11 @@
       <element name="heading">
         <ref name="FlowConfigModuleInlineContent"/>
       </element>
-      <oneOrMore>
+      <!-- The body is optional: a heading alone is a complete USWDS alert, and the parser reads it
+           that way (FlowParser.parseChildElements' `required`). -->
+      <zeroOrMore>
         <ref name="AlertBodyContent"/>
-      </oneOrMore>
+      </zeroOrMore>
     </element>
   </define>
 

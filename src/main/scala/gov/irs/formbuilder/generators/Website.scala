@@ -95,11 +95,9 @@ case class Website(
 
   /** A base path that does not resolve is not a usable front door: served from nginx with autoindex off, `/app/<id>/`
     * answers 403 rather than 404, which reads as a deployment fault rather than a missing page. An application avoids
-    * that by declaring one `<page route="/">` — credit-assistant, tax-withholding-estimator and benefits-enrollment
-    * each do — but nothing makes it a rule, and a flow ported from an application that starts at its first real screen
-    * (Direct File) has no such page to port.
+    * that by declaring one `<page route="/">`
     *
-    * So fill the gap rather than enforce the convention: for each locale with no page at "/", write a redirect at that
+    * for each locale with no page at "/", write a redirect at that
     * locale's root pointing at its own first page. A locale that *does* claim "/" has already written index.html there
     * and is left untouched — this only ever creates a file that would otherwise be absent.
     *

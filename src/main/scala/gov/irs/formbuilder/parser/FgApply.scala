@@ -6,10 +6,7 @@
 //   <fg-apply path="/isMarried" value="true"/>          a literal
 //   <fg-apply path="/spouseState" source="/filerState"/> the current value of another fact
 //
-// `source` exists because copying one fact into another is a distinct and common flow action — the
-// Direct File port alone carries 73 of them — and expressing it as a literal is impossible: the
-// value is not known when the flow is authored. Both paths are checked against the fact dictionary
-// at build time.
+// `source` exists because copying one fact into another is a distinct and common flow action
 
 package gov.irs.formbuilder.parser
 

@@ -102,11 +102,6 @@ object FgSet extends FlowNodeParser {
     }
     validateFact(path, factDictionary)
 
-    // `getDefinitionsAsNodes` is keyed by the path a fact is *declared* at, and `path` need not be
-    // that path: it may reach the fact through a derived collection-item alias, the way
-    // `/primaryFiler/firstName` reaches `/filers/*/firstName`. `getDefinition` resolves those; the
-    // raw map does not, and looking the path up in it directly throws a `NoSuchElementException`
-    // several frames from anything naming the question. So ask the definition where it lives.
     val factDefinition = factDictionary.getDefinition(path)
     val factDefinitionNode = factDictionary.getDefinitionsAsNodes().getOrElse(factDefinition.path, NodeSeq.Empty)
     val isOptional = (factDefinitionNode \ "Placeholder").nonEmpty
@@ -126,10 +121,7 @@ object FgSet extends FlowNodeParser {
     val condition = Condition.getCondition(fgSetElement, factDictionary)
 
     // The path is the key, unless a sibling `<fg-set>` on the same fact already claimed it with
-    // different words — see forChildWithId's overload for what happens then. The signature is the
-    // element's content rather than its question alone, because two questions can read the same and
-    // still differ in their options: `credits-and-deductions/credits/ctc-odc` asks one thing and
-    // offers "No, this hasn't happened to me" or "…to us" depending on the filing status.
+    // different words
     val translationContext = parentTranslationContext.forChildWithId(path, fgSetElement.child.mkString)
     translationContext.updateValue("question", question)
 

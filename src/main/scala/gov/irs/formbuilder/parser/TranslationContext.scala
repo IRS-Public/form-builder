@@ -116,17 +116,6 @@ case class TranslationContext(
   /** The last segment of this context's key: the id this child ended up claiming. */
   def localKey: String = translationContext.lastOption.getOrElse("")
 
-  /** A DOM id built from `base`, unique within the page.
-    *
-    * Translation keys and DOM ids want different things from a repeated question. A page may hold the same `<fg-set>`
-    * twice — two conditional branches asking it in the same words, only one of which shows — and there sharing a
-    * translation key is right: it is one string, translated once. Sharing an `id` is not: `<label for>` binds to the
-    * first element with that id, so the second copy's labels would point into the first, which is hidden. So the first
-    * claim keeps the bare id and later ones get `-2`, `-3`.
-    *
-    * Scoped to the page, because that is the document the ids must be unique in — the first segment of the key path is
-    * the page's route, since [[Page]] is what opens a context under the flow root.
-    */
   def claimControlId(base: String): String = {
     val key = s"${translationContext.headOption.getOrElse("")}\u0000$base"
     val count = controlIdCounts.getOrElse(key, 0) + 1

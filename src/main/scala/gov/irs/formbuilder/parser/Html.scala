@@ -18,7 +18,18 @@ case class HtmlLeafNode(htmlElement: Elem, openTag: String, closeTag: String, tr
   }
 }
 
-case class HtmlWithChildren(openTag: String, closeTag: String, children: Seq[FlowNode]) extends Html {
+/** `condition` is the element's own `condition="…" operator="…"`, parsed rather than left in `openTag`.
+  *
+  * Nothing renders from it — the attributes are already in `openTag` and `fg-conditions.js` reads them from the DOM —
+  * but PageSplitter needs to know what gates a block before it can make that block a page and give the page the same
+  * gate. Additive: an element without the pair carries `None`, exactly as before.
+  */
+case class HtmlWithChildren(
+    openTag: String,
+    closeTag: String,
+    children: Seq[FlowNode],
+    condition: Option[Condition] = None,
+) extends Html {
   override def html(templateEngine: FormBuilderTemplateEngine): String = {
     val childrenHtml = children.html(templateEngine)
     s"$openTag$childrenHtml$closeTag"
@@ -47,7 +58,7 @@ object Html extends FlowNodeParser {
         if (ignoredElements.contains(htmlElement.label)) parentTranslationContext
         else parentTranslationContext.forChildWithoutUniqueId(htmlElement.label)
       val children = flowParser.parseChildElements(htmlElement, translationContext)
-      HtmlWithChildren(openTag, closeTag, children)
+      HtmlWithChildren(openTag, closeTag, children, Condition.fromAttributePair(htmlElement))
     }
   }
 

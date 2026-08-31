@@ -51,6 +51,31 @@ object Condition {
     None
   }
 
+  /** The `condition="…" operator="…"` pair, as written on a plain HTML element.
+    *
+    * The other spelling of the same thing. `<fg-set>` and friends take `if-true`/`if-false`, which
+    * [[getCondition]] reads; every other element takes the explicit pair, which `fg-conditions.js`
+    * evaluates in the browser. Nothing on the Scala side needed to read it until PageSplitter had to
+    * know what gates a block it is about to make a page of.
+    *
+    * `operator` defaults to `isTrue`, matching what the runtime assumes for an element that omits it.
+    *
+    * Reads, and validates nothing. Two reasons, and both are about not turning an addition into a breaking change.
+    * [[getCondition]]'s Boolean check is right for `if-true`/`if-false` and wrong here: half the operators —
+    * `isZero`, `isGreaterThanZero`, `notHasValue` — exist precisely to ask about a fact that is not a Boolean, and
+    * tax-withholding-estimator gates on a collection. And an element's condition has never been checked on this side
+    * at all; `fg-conditions.js` reads it from the DOM. An unrecognised operator answers `None` rather than throwing,
+    * for the same reason: not understanding a gate is a reason to leave the element alone, not to fail the build.
+    */
+  def fromAttributePair(node: xml.Node): Option[Condition] =
+    for {
+      path <- optionString(node \@ "condition")
+      operator <- optionString(node \@ "operator") match {
+        case None           => Some(ConditionOperator.isTrue)
+        case Some(operator) => ConditionOperator.values.find(_.toString == operator)
+      }
+    } yield Condition(path, operator)
+
   private def validateCondition(factDictionary: FactDictionary, conditionPath: Option[String]): Unit =
     if (conditionPath.isDefined) {
       val condition = conditionPath.get

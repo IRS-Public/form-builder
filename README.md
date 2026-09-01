@@ -41,7 +41,7 @@ most likely to hit.
 The dependency runs one way: an application requires this library, and this library requires
 Fact Graph. Nothing in this repository imports from an application or from Taxpert.
 
-### After changing this library
+### Propagating changes to this library
 
 Nothing watches across repository boundaries. Republish, then rebuild whatever consumes it:
 

@@ -90,9 +90,22 @@ first segment.
 
 Two derived values drive navigation, and both are computed by walking the parsed children:
 
-**`gatingCondition`** is the page-level gate used to skip a page under `--singleQuestionPerScreen`.
-Only a page with exactly one question has one. A multi-question page returns `None` so it stays
-reachable and the user lands on at least one visible question. Each question's own condition still
+**`gatingCondition`** is the condition under which a page has anything to show. `fg-navigator.js`
+reads it out of `flow-manifest.json` and skips the page when it evaluates false, so a page that would
+render as an empty `<main>` is left out of the traversal instead. Three sources, in falling order of
+confidence:
+
+1. The `gate` `PageSplitter` set, when the page is one conditional block it cut out of a larger page.
+2. Every piece of content on the page hanging on the same condition, so a false condition leaves
+   nothing to render. This is the rule that catches a screen of pure prose, which has no question to
+   read a condition off.
+3. The page's one question being conditional. Only for a page the splitter emitted, because the rule
+   ignores the rest of the page and only the splitter decides what the rest is. On an authored page
+   that "rest" is content someone wrote, and credit-assistant's `/qualifying-children` is the
+   counterexample: one conditional `<fg-collection>`, beside an alert that shows precisely when the
+   collection does not.
+
+A page with none of the three returns `None` and stays reachable. Each element's own condition still
 drives show and hide inside the page.
 
 **`knockoutConditionPaths`** collects the condition path of every `fg-alert[knockout=true]` reachable
@@ -243,7 +256,7 @@ as block first.
 | the application's `website-static/`, copied to `resources/` | always |
 | the library's theme and flow runtime, extracted into `resources/vendor/form-builder/` | always |
 | `resources/fact-dictionary.xml`, the merged dictionary | always |
-| `resources/flow-manifest.json` | `--singleQuestionPerScreen` |
+| `resources/flow-manifest.json` | always |
 | `resources/form-builder-graph.json` | `--formBuilderGraph` |
 | `resources/scenarios/` | `--scenarioMode`, and the directory exists |
 
@@ -259,7 +272,7 @@ through `fragments/workspace-all-screens.html`, so this generator emits the mark
 editable model is fetched at runtime from the authoring server, so nothing here reads `flow`. It is
 still a parameter, to keep the signature interchangeable with `AllScreens`.
 
-**`FlowManifest`** (`--singleQuestionPerScreen`) emits the JSON array the navigation JS reads, one
+**`FlowManifest`** emits the JSON array the navigation JS reads, one
 entry per rendered page: `route`, `href`, `gatePath`, `gateOperator`, `knockoutPaths`, `sourceRoute`,
 `exclude`. Built for the default locale only, because routes are identical across languages and only
 the href prefix differs, which the navigation JS derives client-side.
@@ -307,6 +320,6 @@ names a `vendor/taxpert/` path.
 | "Collision detected. Expected unique translation key" | Two leaf elements hashed to the same six characters with different content. Lengthen the truncation in `getHashKey` |
 | An `<fg-section-gate>` renders as literal markup | It is not in `FlowNodeTypes.builtIn`, so it falls through to `Html` |
 | A registered input type renders but fails its type check | `nodeType` disagrees with the bound fact. Set it to `None` to opt out |
-| A page is unreachable under `--singleQuestionPerScreen` | It has exactly one question and a gate that is false. That is the design; a multi-question page would stay reachable |
+| A page is unreachable | Its `gatingCondition` is false. Read the three sources above to see which one gave it one |
 | A custom template cannot see a value the parser computed | It is not in `templateVariables` |
 | `!!some.key!!` in the output | The message resolver found no such key in any of the three locale layers |

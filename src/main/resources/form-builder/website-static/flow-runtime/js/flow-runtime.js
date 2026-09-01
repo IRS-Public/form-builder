@@ -12,7 +12,7 @@ import './fg-set.js'
 import './fg-collection.js'
 import './fg-display.js'
 import './continue-handlers.js'
-import { initSingleQuestionNav } from './fg-navigator.js'
+import { initFlowNavigation } from './fg-navigator.js'
 
 document.addEventListener('fg-update', showOrHideAllElements)
 showOrHideAllElements()
@@ -21,7 +21,7 @@ showOrHideAllElements()
 document.querySelector('#page-content-wrapper')?.classList.remove('hidden')
 document.querySelector('#loading-spinner')?.classList.add('hidden')
 
-initSingleQuestionNav()
+initFlowNavigation()
 
 // Open <details> elements whose fact is already complete, so a returning user sees their answers.
 for (const fgSet of document.querySelectorAll('.fg-detail fg-set:not(.hidden)')) {

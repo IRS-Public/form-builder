@@ -49,7 +49,7 @@ the built-in types and are closed.
 | `fg-display.js` | `<fg-show>`, `<fg-reset>`, `<fg-apply>` |
 | `fg-validation.js` | Page-level validation, the summary alert, and the focus moves |
 | `continue-handlers.js` | What pressing Continue does, and the hook an application extends it through |
-| `fg-navigator.js` | Skipping pages under `--singleQuestionPerScreen` |
+| `fg-navigator.js` | Skipping pages that have nothing to show |
 | `modals.js` | `<modal-link>` and its focus trap |
 
 `tests/` at the repository root holds `node --test` suites for `runtime-config.js` and
@@ -290,16 +290,20 @@ read errors rather than throwing, because a throw would take the whole chain dow
 Focus handling sets `tabindex="-1"` on the target and removes it on `blur`, so the outline does not
 persist on later clicks.
 
-## Single-question navigation
+## Page-level navigation
 
-Under `--singleQuestionPerScreen` each page holds one question, so the show and hide that would
-happen inside a page happens between pages instead. `fg-navigator.js` rewrites the Next and Back
-hrefs to skip pages whose gate is false against the live graph, and on load redirects off a page
-whose gate has since become false.
+Some pages have nothing to show. `fg-navigator.js` rewrites the Next and Back hrefs to skip a page
+whose gate is false against the live graph, and on load redirects off a page whose gate has since
+become false.
 
-It reads `resources/flow-manifest.json`, which only that build flag emits, and no-ops without it.
-The locale segment is read off `<html lang>` rather than matched against a list of locale codes,
-because the generator already stamps the page's own language into the document.
+Under `--singleQuestionPerScreen` this is most of what conditional visibility does, since each page
+holds one question and the show and hide that would happen inside a page happens between pages
+instead. In topic-page mode it applies to the pages whose whole body is conditional, which would
+otherwise render as an empty `<main>` with a Next button under it.
+
+It reads `resources/flow-manifest.json`, which every build emits, and no-ops if the fetch fails. The
+locale segment is read off `<html lang>` rather than matched against a list of locale codes, because
+the generator already stamps the page's own language into the document.
 
 ## The Fact Explorer bridge
 

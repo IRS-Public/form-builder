@@ -52,7 +52,7 @@ out/<outSubdir>/
     ├── styles/ js/ img/       the application's own website-static, copied verbatim
     ├── vendor/form-builder/   the theme and flow runtime, extracted from the jar
     ├── fact-dictionary.xml    the merged dictionary the browser engine loads
-    ├── flow-manifest.json     only under --singleQuestionPerScreen
+    ├── flow-manifest.json     the route list and page gates fg-navigator.js reads
     ├── form-builder-graph.json  only under --formBuilderGraph
     └── scenarios/             only under --scenarioMode
 ```
@@ -65,7 +65,7 @@ Anything that does not match `--\w+` raises an error at startup.
 | `--serve` | Start the embedded `smol` static server. Port from `-Dsmol.port`, else `defaultPort`. |
 | `--allScreens` | Also generate the Browse All page at `/all-screens`, listing every screen at once. |
 | `--auditMode` | Fill the workspace slot in `<head>` and at the end of `<body>`, and set `audit-mode` on the page. |
-| `--singleQuestionPerScreen` | Split every page into one question per screen, and emit `flow-manifest.json`. |
+| `--singleQuestionPerScreen` | Split every page into one question per screen. |
 | `--scenarioMode` | Copy `scenarios/` into the site and offer the scenarios in the workspace's Scenario modal. |
 | `--authorMode` | Generate the Author Mode page at `/author` and start its HTTP backend. Host and port from `-Dsmol.author.host` and `-Dsmol.author.port`, default `localhost:3004`. |
 | `--aiScenarioGeneration` | Build-time default for the workspace's AI scenario generation flag. |

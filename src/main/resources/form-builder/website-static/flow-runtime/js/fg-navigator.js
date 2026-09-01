@@ -1,8 +1,9 @@
-// Single-question-per-screen navigation: the show and hide that would happen inside a page happens
-// between pages instead.
+// Page-level show and hide: a page with nothing to show is skipped, and the Next and Back links point
+// past it. Under --singleQuestionPerScreen this is most of what conditional visibility does, since each
+// question is its own page; in topic-page mode it applies to the pages whose whole body is conditional.
 //
-// Reads resources/flow-manifest.json, which only `--singleQuestionPerScreen` emits, and no-ops
-// without it. See docs/internals/flow-runtime.md.
+// Reads resources/flow-manifest.json, which every build emits, and no-ops if the fetch fails.
+// See docs/internals/flow-runtime.md.
 
 import { checkCondition } from './fg-conditions.js'
 import { appBasePath, resourceUrl } from './runtime-paths.js'
@@ -85,7 +86,7 @@ export function refreshNavigationLinks (manifest) {
   }
 }
 
-export async function initSingleQuestionNav () {
+export async function initFlowNavigation () {
   const manifest = await loadFlowManifest()
   if (!manifest) return
 

@@ -294,9 +294,13 @@ object Website {
 
     // Default locale only. Routes are identical across languages, and the navigation JS derives the
     // href prefix client-side.
-    val manifestJson = Option.when(flags.contains(Flags.singleQuestionPerScreen)) {
-      Printer.spaces2.print(FlowManifest.buildJson(flow, app.defaultLocale, app))
-    }
+    //
+    // Emitted for every build rather than only under --singleQuestionPerScreen. A page that has nothing
+    // to show is not a property of how the flow was cut into screens: an authored page whose whole body
+    // sits inside one conditional block renders as an empty `<main>` in topic-page mode too, and
+    // without a manifest fg-navigator.js has no way to know it should be skipped. Pages with no gate
+    // are still listed, and a manifest of nothing but nulls costs the browser one small fetch.
+    val manifestJson = Some(Printer.spaces2.print(FlowManifest.buildJson(flow, app.defaultLocale, app)))
 
     Website(pages, dictionaryXml, manifestJson, scenariosSource, formBuilderGraphJson)
   }

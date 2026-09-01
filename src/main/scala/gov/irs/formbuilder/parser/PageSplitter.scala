@@ -130,24 +130,29 @@ object PageSplitter {
       .orElse(questionIn(group).map(slugFor))
       .getOrElse(s"screen-${idx + 1}")
 
-  private def headingIn(nodes: Seq[FlowNode]): Option[HtmlLeafNode] = nodes.iterator.flatMap {
-    case h: HtmlLeafNode if Set("h2", "h3", "h4").contains(h.htmlElement.label) => Iterator(h)
-    case h: HtmlWithChildren                                                    => headingIn(h.children).iterator
-    case s: Section                                                             => headingIn(s.children).iterator
-    case _                                                                      => Iterator.empty
-  }.nextOption()
+  private def headingIn(nodes: Seq[FlowNode]): Option[HtmlLeafNode] = nodes.iterator
+    .flatMap {
+      case h: HtmlLeafNode if Set("h2", "h3", "h4").contains(h.htmlElement.label) => Iterator(h)
+      case h: HtmlWithChildren                                                    => headingIn(h.children).iterator
+      case s: Section                                                             => headingIn(s.children).iterator
+      case _                                                                      => Iterator.empty
+    }
+    .nextOption()
 
-  private def questionIn(nodes: Seq[FlowNode]): Option[FlowNode] = nodes.iterator.flatMap {
-    case fg: FgSet           => Iterator(fg: FlowNode)
-    case fg: FgCollection    => Iterator(fg: FlowNode)
-    case h: HtmlWithChildren => questionIn(h.children).iterator
-    case s: Section          => questionIn(s.children).iterator
-    case d: FgDetail         => questionIn(d.children).iterator
-    case a: FgAlert          => questionIn(a.children).iterator
-    case _                   => Iterator.empty
-  }.nextOption()
+  private def questionIn(nodes: Seq[FlowNode]): Option[FlowNode] = nodes.iterator
+    .flatMap {
+      case fg: FgSet           => Iterator(fg: FlowNode)
+      case fg: FgCollection    => Iterator(fg: FlowNode)
+      case h: HtmlWithChildren => questionIn(h.children).iterator
+      case s: Section          => questionIn(s.children).iterator
+      case d: FgDetail         => questionIn(d.children).iterator
+      case a: FgAlert          => questionIn(a.children).iterator
+      case _                   => Iterator.empty
+    }
+    .nextOption()
 
-  /** A page's children with `<section>` wrappers seen through, so a real block is a unit and a grouping element is not. */
+  /** A page's children with `<section>` wrappers seen through, so a real block is a unit and a grouping element is not.
+    */
   private def topLevelUnits(nodes: Seq[FlowNode]): Seq[FlowNode] = nodes.flatMap {
     case s: Section => topLevelUnits(s.children)
     case other      => Seq(other)

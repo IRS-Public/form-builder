@@ -5,8 +5,8 @@ import gov.irs.formbuilder.FormBuilderApp
 import io.circe.syntax.*
 import io.circe.Json
 
-/** The JSON array fg-navigator.js reads from `{basePath}/resources/flow-manifest.json` under
-  * `--singleQuestionPerScreen`, one entry per rendered page. The field list is in
+/** The JSON array fg-navigator.js reads from `{basePath}/resources/flow-manifest.json`, one entry per rendered page.
+  * Written by every build, in the default locale only. The field list is in
   * docs/internals/flow-parsing-and-generation.md.
   */
 object FlowManifest {

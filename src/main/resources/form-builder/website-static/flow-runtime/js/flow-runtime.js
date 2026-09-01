@@ -17,8 +17,17 @@ import { initFlowNavigation } from './fg-navigator.js'
 document.addEventListener('fg-update', showOrHideAllElements)
 showOrHideAllElements()
 
-// Absent on the /all-screens view, which renders every page at once with no loading spinner.
-document.querySelector('#page-content-wrapper')?.classList.remove('hidden')
+// DF-2. The page painted long ago; what lifts here is `inert`, so the flow becomes interactive at
+// the moment it can answer for itself. Every <fg-set> has already read its value out of the graph
+// by now — fg-set.js is imported above, and a custom element upgrades on import — so nothing the
+// user types from here is overwritten. Absent on the /all-screens view, which renders every page at
+// once with no spinner and no wrapper.
+//
+// Not awaiting initFlowNavigation() below first, though it is what corrects .form-actions' Next to
+// the next *live* page: its fetch is a network call, and blocking interactivity on one would be a
+// new way for a slow link to make the page unusable. Clicking Next in the window before it lands
+// goes to a page that then bounces you forward itself, which is what happens today.
+document.querySelector('#page-content-wrapper')?.removeAttribute('inert')
 document.querySelector('#loading-spinner')?.classList.add('hidden')
 
 initFlowNavigation()

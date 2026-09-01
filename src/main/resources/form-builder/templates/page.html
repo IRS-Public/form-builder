@@ -6,7 +6,10 @@
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KV978ZL"
                   height="0" width="0" title="Google Tag Manager" class="gtm-noscript"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
-<body th:classappend="${flags.auditMode} ? 'audit-mode'">
+<!--/* `fg-conditions-pending` is DF-2's gate. It is server-rendered rather than added by a script so
+       that it is in force at the very first paint, and showOrHideAllElements() takes it off again on
+       its first pass. theme/styles/layout/main-content.css says what it hides and why. */-->
+<body class="fg-conditions-pending" th:classappend="${flags.auditMode} ? 'audit-mode'">
 <a class="usa-skipnav" href="#main-content" th:text="#{layout.skip-to-main}"></a>
 <div class="app-container">
     <!--/* The Taxpert workspace is a developer surface: the nav, the panel and the tool dock are built only
@@ -84,12 +87,30 @@
                    other one then shipped verbatim on every page. */-->
             <p class="alert--warning" th:text="#{layout.noscript(#{layout.title})}"></p>
         </noscript>
-        <img
-                th:src="|${basePath}/resources/img/spinner.svg|"
-                id="loading-spinner"
-                alt="Loading spinner"
-        >
-        <div id="page-content-wrapper" class="hidden">
+        <!--/* DF-2. The spinner no longer stands in for the page, because the page below it is now painted
+               and readable from the first frame; all it still reports is that the flow is not up yet. It sits
+               in a zero-height box for that reason: an in-flow spinner above content that is already on
+               screen drags the whole page up the moment it goes, and a layout shift at the end of the boot
+               is exactly the thing this stage set out to remove. */-->
+        <div class="loading-region">
+            <img
+                    th:src="|${basePath}/resources/img/spinner.svg|"
+                    id="loading-spinner"
+                    alt="Loading spinner"
+            >
+        </div>
+        <!--/* DF-2. No `.hidden`: the generated markup is complete on arrival, so it paints while the engine
+               is still downloading, and only the elements whose *condition* is unknown wait (the CSS gate on
+               <body>, above).
+
+               `inert` rather than nothing, because what genuinely is not ready is interaction, and two things
+               here go wrong if it happens early. An <input> typed into before <fg-set> upgrades is silently
+               overwritten by setInputValueFromFactValue() when it does. And .form-actions' Next still points
+               at the next *declared* page rather than the next live one until fg-navigator has the manifest.
+               Both windows exist today and are unreachable only because the whole block is display:none;
+               painting it without inert would open them. flow-runtime.js takes the attribute off at the end
+               of the boot. */-->
+        <div id="page-content-wrapper" inert>
             <div th:utext="${pageHtml}"></div>
             <div class="form-actions" th:if="${nextPageHref}">
             <!-- [html-validate-disable prefer-native-element -- Do not remove the .usa-button class - this class enables Space key functionality from USWDS needed for `role="button"`] -->

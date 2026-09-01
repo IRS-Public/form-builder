@@ -16,7 +16,7 @@ in [form-builder-examples](https://github.com/IRS-Public/form-builder-examples).
 To understand the difference between Taxpert, Form Builder and the Fact Graph, see
 [this doc](https://github.com/IRS-Public/taxpert/blob/main/docs/adr/taxpert-form-builder-fact-graph.md).
 
-To start a new application rather than copying an existing one, see [Form Builder Template](https://github.com/IRS-Public/form-builder-template), a cookiecutter scaffold for Form Builder applications.
+To start a new application rather than copying an existing one, see [Form Builder Template](https://github.com/IRS-Public/form-builder-template), which is a cookiecutter scaffold for Form Builder applications.
 
 ## Quickstart
 [docs/ONBOARDING.md](docs/ONBOARDING.md) covers working on this library itself, including its toolchain, its

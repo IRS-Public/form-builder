@@ -25,8 +25,29 @@ export let factGraph = serializedGraphJSON
 window.factGraph = factGraph
 document.dispatchEvent(new CustomEvent('fg-load'))
 
-// Presence of an unload event listener will disable bfcache in Firefox.
-window.addEventListener('unload', () => {})
+// DF-6. There was an empty `unload` listener here, under a comment saying that its presence
+// disables bfcache in Firefox. It disabled it in Chrome too, so every Back re-paid the whole boot
+// instead of restoring a live page. `git log -S` puts it in 88526db, the commit that first created
+// this file, with an empty body and no caller then or since; nothing was moved to `pagehide`
+// because there was no work to move.
+//
+// What the deletion makes necessary is below. A page restored from bfcache comes back holding the
+// `factGraph` it was frozen with, which is older than sessionStorage whenever an answer was given
+// further down the flow — and the next `saveFactGraph()` from that page would write the older graph
+// back over those answers.
+//
+// A reload rather than rehydrating in place: everything that read the graph at connect time would
+// have to read it again, and <fg-collection> is not re-runnable — it builds its rows in
+// connectedCallback from collection ids it also mints, so a second pass adds rows rather than
+// replacing them. The identical case is the common one and stays instant: Back after simply passing
+// through a screen leaves the stored graph untouched, and only Back after answering elsewhere pays
+// for a reload.
+window.addEventListener('pageshow', (event) => {
+  if (!event.persisted) return
+  const stored = sessionStorage.getItem(graphKey())
+  if (stored === null || stored === factGraph.toJSON()) return
+  window.location.reload()
+})
 
 const fgBridge = createFactGraphBridge({
   onRemoteGraph: (graph) => {

@@ -20,6 +20,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="apple-touch-icon-precomposed" sizes="72x72" th:href="|${basePath}/resources/img/apple-icon-72x72.png|" />
 <link rel="stylesheet" th:href="|${basePath}/resources/styles/main.css|" />
 
+<!--/* DF-2. With scripting off, back to what the page did before this stage: nothing of the flow shown, and
+       the <noscript> warning in page.html the only thing on it. Painting the questionnaire is worth doing
+       only because the runtime is about to finish it — the conditional regions are still gated, every
+       <fg-show> is still empty, and no input commits an answer — so a page that will never get a runtime is
+       a page of half-written sentences and dead controls. `inert` alone does not cover this: it takes the
+       controls out of the tab order and out of the accessibility tree, but sighted readers still see a form
+       that looks fillable.
+
+       In <head> and inside <noscript>, which is the one place a stylesheet may sit behind that condition;
+       the alternative is a rule some script has to add, and no script runs on this path. */-->
+<noscript>
+    <style>#page-content-wrapper { display: none; }</style>
+</noscript>
+
 <!--/* What the flow runtime needs to know about this application, read by runtime-config.js.
        Ungated on purpose: the runtime is what a generated questionnaire *runs on*, whether or not the
        site was built with --auditMode. These values used to arrive only through the workspace's own

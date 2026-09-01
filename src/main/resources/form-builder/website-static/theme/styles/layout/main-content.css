@@ -34,9 +34,41 @@ main h1 {
   font-weight: 600;
 }
 
+/* DF-2 — the boot state.
+ *
+ * #page-content-wrapper is no longer hidden while the Fact Graph boots, so the page is readable
+ * from the first frame. What cannot be readable that early is any element whose *condition* the
+ * graph has not answered yet: painted optimistically it would appear and then be taken away, and on
+ * a knockout screen that means telling a taxpayer they are ineligible before anything has decided
+ * they are. So conditional elements start hidden and showOrHideAllElements() clears this gate at
+ * the end of its first pass, which is the moment every one of them has its real answer.
+ *
+ * The gate is a class on <body>, written by the generator into the document. A rule that had to be
+ * added by a script would be added after first paint, which is the one frame it exists to cover. */
+body.fg-conditions-pending [condition][operator],
+/* The flow's own Back and Next belong to the same set. On a transpiled flow the whole screen sits
+ * inside one gated wrapper, so painting the buttons on their own puts two controls under an empty
+ * page and then shoves them down when the screen arrives — 0.089 of layout shift on a Direct File
+ * page, against 0.0003 once they wait with it. They are also not answerable yet in their own right:
+ * fg-navigator rewrites both to the next and previous *live* page. */
+body.fg-conditions-pending .form-actions {
+  display: none;
+}
+
+/* Zero-height, so the spinner it holds is out of flow and its removal moves nothing. `position:
+ * relative` is on this box rather than on <main> deliberately: making <main> a containing block
+ * would re-parent every absolutely positioned descendant USWDS has in there. */
+.loading-region {
+  position: relative;
+  height: 0;
+}
+
 #loading-spinner {
-  display: block;
-  margin: 2rem auto;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2rem;
+  height: 2rem;
 }
 
 #loading-spinner.hidden { display: none; }

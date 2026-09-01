@@ -84,4 +84,11 @@ export function showOrHideAllElements () {
       element.classList.remove('hidden')
     }
   }
+
+  // DF-2. Every conditional element now carries its real answer, so the CSS gate that has kept all
+  // of them hidden since first paint can go. Only here, and deliberately not in a `finally`: if the
+  // loop above ever throws part-way, the elements it did not reach have not been decided, and
+  // leaving those hidden is the safe half to lose. A knockout alert that appears because a loop
+  // broke is worse than a section that stays hidden.
+  document.body.classList.remove('fg-conditions-pending')
 }
